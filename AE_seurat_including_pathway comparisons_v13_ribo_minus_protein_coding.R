@@ -19,9 +19,8 @@ library(SingleR)
 copycat = 1 # copycat object on and off
 logNorm_later = 1 # performs log norm after PCA calculatiobs
 
-#a_name = "06_POLII_genes_scaled_QN"
+#stamp for filenames from this analysis
 a_name = "11_ribo_min_genes_scaled_withGN_unscaled_PCAs_QN"
-#setwd("D:/R/atheroexpress")
 setwd("C:/Users/micha/OneDrive/Documents/R/atheroexpress/analysis2")
 
 raw.genecounts = read.table (file = "raw_counts.txt.minRib.txt.PC.txtt",header = T,sep = "\t",row.names = 1)
@@ -78,6 +77,15 @@ names(second.best)=row.names(cor.matrix)
 colon[["second.best.cor"]] <- second.best
 names(tenth.best)=row.names(cor.matrix)
 colon[["tenth.best.cor"]] <- tenth.best
+
+#add metadata
+f=read.table(file = "clinical_data_good_selection.txt",header = T,sep = "\t",row.names = 1)
+for (i in names(f)){
+  feature = f[,i]
+  names(feature)=row.names(f)
+  colon[[i]] <- feature
+}
+
 
 #get percentatge of mito genes
 colon[["percent.mt"]] <- PercentageFeatureSet(colon, pattern = "^MT-")
