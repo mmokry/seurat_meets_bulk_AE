@@ -770,4 +770,68 @@ SingleR.DrawHeatmap(SingleR = singler$singler[[1]]$SingleR.clusters.main, cluste
 dev.off()
 
 
+#####survival
+library(ggfortify)
+library(survival)
+
+
+f=read.table(file = "ep_major.txt",header = T,sep = "\t",row.names = 1)
+surv=data.frame(Idents(colon))
+survv=f[names(Idents(colon)),c(1:2)]
+combined=cbind(surv,survv)
+combined$ep.major=as.numeric(combined$ep_major)
+
+combined$ep.major[combined$ep.major == 2] = 5
+combined$ep.major[combined$ep.major == 1] = 2
+combined$ep.major[combined$ep.major == 5] = 1
+fit = survfit(Surv(ep_major_time,ep.major)~Idents.colon.,data = combined,conf.int=TRUE)
+survdiff(Surv(ep_major_time,ep.major)~Idents.colon.,data = combined)
+autoplot(fit, conf.int = F)
+combined$Idents.colon.[combined$Idents.colon. == 4] = 3
+fit = survfit(Surv(ep_major_time,ep.major)~Idents.colon.,data = combined,conf.int=TRUE)
+survdiff(Surv(ep_major_time,ep.major)~Idents.colon.,data = combined)
+autoplot(fit, conf.int = F)
+
+combined$Idents.colon.[combined$Idents.colon. == 4] = 3
+combined$Idents.colon.[combined$Idents.colon. == 2] = 1
+combined$Idents.colon.[combined$Idents.colon. == 0] = 1
+
+
+fit = survfit(Surv(ep_major_time,ep.major)~Idents.colon.,data = combined,conf.int=TRUE)
+survdiff(Surv(ep_major_time,ep.major)~Idents.colon.,data = combined)
+autoplot(fit, conf.int = T)
+
+
+
+
+
+
+f=read.table(file = "ep_composite.txt",header = T,sep = "\t",row.names = 1)
+surv=data.frame(Idents(colon))
+survv=f[names(Idents(colon)),c(1:2)]
+combined=cbind(surv,survv)
+combined$ep.composite=as.numeric(combined$ep_composite)
+
+combined$ep.composite[combined$ep.composite == 2] = 5
+combined$ep.composite[combined$ep.composite == 1] = 2
+combined$ep.composite[combined$ep.composite == 5] = 1
+fit = survfit(Surv(ep_composite_time,ep.composite)~Idents.colon.,data = combined,conf.int=TRUE)
+survdiff(Surv(ep_composite_time,ep.composite)~Idents.colon.,data = combined)
+autoplot(fit, conf.int = F)
+combined$Idents.colon.[combined$Idents.colon. == 4] = 3
+fit = survfit(Surv(ep_composite_time,ep.composite)~Idents.colon.,data = combined,conf.int=TRUE)
+survdiff(Surv(ep_composite_time,ep.composite)~Idents.colon.,data = combined)
+autoplot(fit, conf.int = T)
+
+
+combined$Idents.colon.[combined$Idents.colon. == 4] = 3
+combined$Idents.colon.[combined$Idents.colon. == 2] = 1
+combined$Idents.colon.[combined$Idents.colon. == 0] = 1
+
+
+fit = survfit(Surv(ep_composite_time,ep.composite)~Idents.colon.,data = combined,conf.int=TRUE)
+survdiff(Surv(ep_composite_time,ep.composite)~Idents.colon.,data = combined)
+autoplot(fit, conf.int = T)
+
+
 
