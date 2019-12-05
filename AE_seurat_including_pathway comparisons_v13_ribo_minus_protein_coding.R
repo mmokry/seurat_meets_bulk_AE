@@ -20,7 +20,7 @@ copycat = 1 # copycat object on and off
 logNorm_later = 1 # performs log norm after PCA calculatiobs
 
 #stamp for filenames from this analysis
-a_name = "11_ribo_min_genes_scaled_withGN_unscaled_PCAs_QN"
+a_name = "13_rib_min_scaled_withGN_unscaled_PCAs_QN"
 setwd("C:/Users/micha/OneDrive/Documents/R/atheroexpress/analysis2")
 
 raw.genecounts = read.table (file = "raw_counts.txt.minRib.txt.PC.txtt",header = T,sep = "\t",row.names = 1)
@@ -55,7 +55,7 @@ raw.genecounts=t(t(raw.genecounts)/colSums(raw.genecounts))*100000
 raw.genecounts=round(limma::normalizeQuantiles(raw.genecounts))
 
 #create seurat object
-colon <- CreateSeuratObject(raw.genecounts, min.cells = 20,min.features = 9000,
+colon <- CreateSeuratObject(raw.genecounts, min.cells = 1,min.features = 1,
                             project = "AE")
 if (copycat == 1){
   raw.genecountsENS=raw.genecounts
@@ -63,7 +63,7 @@ if (copycat == 1){
   namesENS=paste("ENSG",namesENS,sep = "")
   row.names(raw.genecountsENS)=namesENS
   
-  colonENS <- CreateSeuratObject(raw.genecountsENS, min.cells = 20,min.features = 9000,
+  colonENS <- CreateSeuratObject(raw.genecountsENS, min.cells = 1,min.features = 1,
                               project = "AE")
   }
 
@@ -117,7 +117,7 @@ if (copycat == 1){
 top10 <- head(VariableFeatures(colon), 35)
 
 #plot variable genes
-pdf(file = paste(a_name,"_variable genes.pdf"),height = 7,width = 7)
+pdf(file = paste(a_name,"_variable genes.pdf"),height = 5,width = 5)
 plot1 <- VariableFeaturePlot(colon)
 plot1
 plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
@@ -198,10 +198,10 @@ if (copycat==1){
 colon.markers <- FindAllMarkers(object = colon, only.pos = TRUE, min.pct = 0.2, 
                                 thresh.use = 0.2)
 
-c02.markers <- FindMarkers(colon, ident.1 = "0", ident.2 = "2")
+#c02.markers <- FindMarkers(colon, ident.1 = "0", ident.2 = "2")
 
 write.table(colon.markers,file = paste(a_name,paste("all","_DEGs.txt")),sep = "\t",quote = F)
-write.table(c02.markers,file = paste(a_name,paste("c0-c2","_DEGs.txt")),sep = "\t",quote = F)
+#write.table(c02.markers,file = paste(a_name,paste("c0-c2","_DEGs.txt")),sep = "\t",quote = F)
 ####pathway analysis
 DEGs_entrez_all=as.character(0)
 DEGs_entrez_all=as.list(DEGs_entrez_all)
@@ -320,7 +320,9 @@ for (i in c(0:( max(as.numeric(colon$seurat_clusters))-1))){
   ###################### compare pathway scores between modules
   if (length(as.data.frame(PA)[,1])>1){
     pdf(file = paste(a_name,paste(i,"_Volcano.pdf")),height = 4, width = 4)
-    for (j in 1: length(as.data.frame(PA)[,1])){
+    npathways = length(as.data.frame(PA)[,1])
+    if(50<npathways){npathways = 50}
+    for (j in 1: npathways){
       pathway=c(as.data.frame(PA)[j,1])
       path_genes <- getBM(
       filters="reactome",
@@ -425,8 +427,8 @@ genesv=c(
   "C1QA-ENSG00000173372",
   "CD63-ENSG00000135404"  ,   
    "CD74-ENSG00000019582" ,
- "APOE-ENSG00000130203",
- "CD4-ENSG000000106101"
+ "APOE-ENSG00000130203"
+# "CD4-ENSG000000106101"
  
 # "KLF4-ENSG00000136826"
  
@@ -480,7 +482,7 @@ VlnPlot(colon,x.lab.rot=T, features = c("CD4-ENSG00000010610"))
 VlnPlot(colon,x.lab.rot=T, features = c("VDR-ENSG00000111424"))
 VlnPlot(colon,x.lab.rot=T, features = c("CD3E-ENSG00000198851"))
 
-CD4-ENSG000000106101
+
 
 
 
@@ -519,7 +521,7 @@ dev.off()
 
 
 library("dplyr")
-top10 <- colon.markers %>% group_by(cluster) %>% top_n(n = 20, wt = avg_logFC)
+top10 <- colon.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_logFC)
 
 pdf(file = paste(a_name,"_heatmap_top10markers.pdf"),height = 3,width = 8)
 DoHeatmap(colon, features = genesv) + NoLegend()
@@ -582,7 +584,7 @@ for (i in c(1:7)){
 pdf(file = paste(a_name,"_clinical_data.pdf"),height = 5,width = 5)
 f=read.table(file = "clinical_data_good_selection.txt",header = T,sep = "\t",row.names = 1)
 
-for (i in c(1:18)){
+for (i in c(1,2,4,5,7:18)){
   tbl = table(f[names(Idents(colon)),i],as.numeric(Idents(colon)))
 
   
@@ -775,6 +777,7 @@ library(ggfortify)
 library(survival)
 
 
+pdf(file = paste(a_name,"_survival_ep_major.pdf"),height = 5,width = 5)
 f=read.table(file = "ep_major.txt",header = T,sep = "\t",row.names = 1)
 surv=data.frame(Idents(colon))
 survv=f[names(Idents(colon)),c(1:2)]
@@ -786,23 +789,23 @@ combined$ep.major[combined$ep.major == 1] = 2
 combined$ep.major[combined$ep.major == 5] = 1
 fit = survfit(Surv(ep_major_time,ep.major)~Idents.colon.,data = combined,conf.int=TRUE)
 survdiff(Surv(ep_major_time,ep.major)~Idents.colon.,data = combined)
-autoplot(fit, conf.int = F)
-combined$Idents.colon.[combined$Idents.colon. == 4] = 3
+autoplot(fit, conf.int = F,ylim = c(0.75,1),xlim = c(0,5))
+combined$Idents.colon.[combined$Idents.colon. == 3] = 1
 fit = survfit(Surv(ep_major_time,ep.major)~Idents.colon.,data = combined,conf.int=TRUE)
 survdiff(Surv(ep_major_time,ep.major)~Idents.colon.,data = combined)
-autoplot(fit, conf.int = F)
+autoplot(fit, conf.int = F,ylim = c(0.75,1),xlim = c(0,5))
 
-combined$Idents.colon.[combined$Idents.colon. == 4] = 3
-combined$Idents.colon.[combined$Idents.colon. == 2] = 1
-combined$Idents.colon.[combined$Idents.colon. == 0] = 1
+combined$Idents.colon.[combined$Idents.colon. == 4] = 0
+combined$Idents.colon.[combined$Idents.colon. == 2] = 0
+
 
 
 fit = survfit(Surv(ep_major_time,ep.major)~Idents.colon.,data = combined,conf.int=TRUE)
 survdiff(Surv(ep_major_time,ep.major)~Idents.colon.,data = combined)
-autoplot(fit, conf.int = T)
+autoplot(fit, conf.int = F,ylim = c(0.75,1),xlim = c(0,5))
+autoplot(fit, conf.int = T,ylim = c(0.75,1),xlim = c(0,5))
 
-
-
+dev.off()
 
 
 
@@ -818,15 +821,14 @@ combined$ep.composite[combined$ep.composite == 5] = 1
 fit = survfit(Surv(ep_composite_time,ep.composite)~Idents.colon.,data = combined,conf.int=TRUE)
 survdiff(Surv(ep_composite_time,ep.composite)~Idents.colon.,data = combined)
 autoplot(fit, conf.int = F)
-combined$Idents.colon.[combined$Idents.colon. == 4] = 3
+combined$Idents.colon.[combined$Idents.colon. == 3] = 1
 fit = survfit(Surv(ep_composite_time,ep.composite)~Idents.colon.,data = combined,conf.int=TRUE)
 survdiff(Surv(ep_composite_time,ep.composite)~Idents.colon.,data = combined)
 autoplot(fit, conf.int = T)
 
 
-combined$Idents.colon.[combined$Idents.colon. == 4] = 3
-combined$Idents.colon.[combined$Idents.colon. == 2] = 1
-combined$Idents.colon.[combined$Idents.colon. == 0] = 1
+combined$Idents.colon.[combined$Idents.colon. == 4] = 0
+combined$Idents.colon.[combined$Idents.colon. == 2] = 0
 
 
 fit = survfit(Surv(ep_composite_time,ep.composite)~Idents.colon.,data = combined,conf.int=TRUE)
