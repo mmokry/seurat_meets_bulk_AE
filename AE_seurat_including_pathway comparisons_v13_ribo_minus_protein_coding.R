@@ -6,22 +6,27 @@ library(gplots)
 library(limma)
 library(ReactomePA)
 library(dplyr)
-library(biomaRt)#
+library(biomaRt)
 library(clusterProfiler)
 library(org.Hs.eg.db)
 library(reactome.db)
 library(SingleR)
-
+library(ggplot2)
+library(ggfortify)
+library(survival)
+library(tidyverse)
+library(tableone)
 
 #reticulate::py_install(packages ='umap-learn')
 ##############################################
 
-copycat = 1 # copycat object on and off
-logNorm_later = 1 # performs log norm after PCA calculatiobs
+copycat = 1 # copycat object on and off - it creates seurat objects with same content but different gene names (ensembl, HGCN), as it is difficult to change it in existing seurat object
+logNorm_later = 1 # performs log norm after PCA calculations
 
 #stamp for filenames from this analysis
 a_name = "13_rib_min_scaled_withGN_unscaled_PCAs_QN"
-setwd("C:/Users/micha/OneDrive/Documents/R/atheroexpress/analysis2")
+
+setwd("C:/Users/micha/OneDrive/Documents/R/atheroexpress/analysis_draft")
 
 raw.genecounts = read.table (file = "raw_counts.txt.minRib.txt.PC.txtt",header = T,sep = "\t",row.names = 1)
 
@@ -65,9 +70,16 @@ if (copycat == 1){
   
   colonENS <- CreateSeuratObject(raw.genecountsENS, min.cells = 1,min.features = 1,
                               project = "AE")
+  raw.genecountsHG=raw.genecounts
+  namesHG=sapply( strsplit( row.names(raw.genecountsHG), "_ENSG"), "[", 1)
+  row.names(raw.genecountsHG)=namesHG
+  
+  colonHG <- CreateSeuratObject(raw.genecountsHG, min.cells = 1,min.features = 1,
+                                 project = "AE")
+  
   }
 
-#add correlation coefficients onto the object for future excludion of possible duplicates and samples that are large outliers
+#add correlation coefficients onto the object for future exclusion of possible duplicates and samples that are large outliers
 cor.matrix = cor(log2(raw.genecounts+10))
 colon[["mean.cor"]] <- colMeans(cor.matrix)
 aa <- cor.matrix[order(row(cor.matrix), -cor.matrix)]
@@ -80,6 +92,13 @@ colon[["tenth.best.cor"]] <- tenth.best
 
 #add metadata
 f=read.table(file = "clinical_data_good_selection.txt",header = T,sep = "\t",row.names = 1)
+for (i in names(f)){
+  feature = f[,i]
+  names(feature)=row.names(f)
+  colon[[i]] <- feature
+}
+
+f=read.table(file = "MuSiC.txt",header = T,sep = "\t",row.names = 1)
 for (i in names(f)){
   feature = f[,i]
   names(feature)=row.names(f)
@@ -107,11 +126,17 @@ if (logNorm_later == 0) {
     colonENS <- NormalizeData(object = colonENS, normalization.method = "LogNormalize", 
                          scale.factor = 10000)
   }
+    if (copycat == 1){
+      colonHG <- NormalizeData(object = colonHG, normalization.method = "LogNormalize", 
+                                scale.factor = 10000)
+      
+  }
 }
 #select fixed number of variable genes
 colon<- FindVariableFeatures(colon, selection.method = "vst", nfeatures = 5000)
 if (copycat == 1){
   colonENS<- FindVariableFeatures(colonENS, selection.method = "vst", nfeatures = 5000)
+  colonHG<- FindVariableFeatures(colonHG, selection.method = "vst", nfeatures = 5000)
   }
 
 top10 <- head(VariableFeatures(colon), 35)
@@ -131,13 +156,15 @@ colon <- ScaleData(colon, features = c(all.genes))
 if (copycat ==1){
   all.genesENS <- rownames(colonENS)
   colonENS <- ScaleData(colonENS, features = c(all.genesENS))
+  all.genesHG <- rownames(colonHG)
+  colonHG <- ScaleData(colonHG, features = c(all.genesHG))
   
 }
 
-#regress out batch - this does not work properly
+#regress out batch - this does not work properly and its probably not needed
 #f=read.table(file = "metadata_good.txt",header = T,sep = "\t",row.names = 1)
 #colon[["seq.batch"]] <- f
-#colon <- ScaleData(colon, vars.to.regress = c("nFeature_RNA","seq.batch"))
+#colon <- ScaleData(colon, vars.to.regress = c("seq.batch"))
 
 
 #runPCAS
@@ -155,7 +182,7 @@ dev.off()
 
 if (copycat ==1){
   colonENS <- RunPCA(colonENS, features = VariableFeatures(object = colonENS))
-
+  colonHG <- RunPCA(colonHG, features = VariableFeatures(object = colonHG))
 }
 if (logNorm_later == 1) {
   colon
@@ -164,6 +191,9 @@ if (logNorm_later == 1) {
   if (copycat == 1){
     colonENS <- NormalizeData(object = colonENS, normalization.method = "LogNormalize", 
                               scale.factor = 10000)
+    colonHG <- NormalizeData(object = colonHG, normalization.method = "LogNormalize", 
+                              scale.factor = 10000)
+    
   }
 }
 
@@ -188,6 +218,10 @@ if (copycat==1){
   colonENS <- FindClusters(colonENS, resolution = 0.5)
   colonENS <- RunTSNE(object = colonENS, dims.use = 1:12, do.fast = TRUE)
   colonENS <- RunUMAP(object = colonENS, dims = 1:12)
+  colonHG <- FindNeighbors(colonHG, dims = 1:12)
+  colonHG <- FindClusters(colonHG, resolution = 0.5)
+  colonHG <- RunTSNE(object = colonHG, dims.use = 1:12, do.fast = TRUE)
+  colonHG <- RunUMAP(object = colonHG, dims = 1:12)
   
   
 }
@@ -197,12 +231,20 @@ if (copycat==1){
 #find marker genes
 colon.markers <- FindAllMarkers(object = colon, only.pos = TRUE, min.pct = 0.2, 
                                 thresh.use = 0.2)
+if (copycat ==1){
+  colonENS.markers <- FindAllMarkers(object = colonENS, only.pos = TRUE, min.pct = 0.2, 
+                                  thresh.use = 0.2)
+}
 
 #c02.markers <- FindMarkers(colon, ident.1 = "0", ident.2 = "2")
 
 write.table(colon.markers,file = paste(a_name,paste("all","_DEGs.txt")),sep = "\t",quote = F)
 #write.table(c02.markers,file = paste(a_name,paste("c0-c2","_DEGs.txt")),sep = "\t",quote = F)
-####pathway analysis
+
+
+####################
+####pathway analysis  sometimes the internet connection hampers... and it fails. There will be a lot of warnings as we use only protein coding genes
+####it's based on differential genes identified by Seurat what does not need to be the best choice, not all clusters get ####significant results - but when some pathways are checked manually they come back as cluster specific. I have to think ####about it a bit more...
 DEGs_entrez_all=as.character(0)
 DEGs_entrez_all=as.list(DEGs_entrez_all)
 
@@ -212,6 +254,7 @@ for (i in c(0:( max(as.numeric(colon$seurat_clusters))-1))){
 #extract genes
   DEGs=sapply( strsplit( (colon.markers)[colon.markers$cluster==i,7], "-ENSG"), "[", 2)
   DEGs=paste("ENSG",DEGs,sep = "")
+  #use only 500 top
   if (length(DEGs)>500){
     DEGs = DEGs[1:500]
   }
@@ -315,13 +358,12 @@ for (i in c(0:( max(as.numeric(colon$seurat_clusters))-1))){
     
   }
   write.table(as.data.frame(PA),file = paste(a_name,paste(i,"_Reactome.txt")),sep = "\t",quote = F)
-#  dev.off()
-#}
+
   ###################### compare pathway scores between modules
   if (length(as.data.frame(PA)[,1])>1){
     pdf(file = paste(a_name,paste(i,"_Volcano.pdf")),height = 4, width = 4)
     npathways = length(as.data.frame(PA)[,1])
-    if(50<npathways){npathways = 50}
+    if(50<npathways){npathways = 50}   #only tot 50 pathways are processed so some interesting ones might be skipped... 
     for (j in 1: npathways){
       pathway=c(as.data.frame(PA)[j,1])
       path_genes <- getBM(
@@ -349,43 +391,45 @@ for (i in c(0:( max(as.numeric(colon$seurat_clusters))-1))){
   dev.off()
   }
   
-  ############custom pathwaysprojection
-#  xx <- as.list(reactomePATHID2EXTID)
-#  PAS = c("R-HSA-71403")
-  
-#  for (j in 1: length(PAS)){
-#  print(PAS[j])
-    
-#    pathway=c(PAS[j])
-#    path_genes <- getBM(
-#      filters="reactome",
-#      attributes=c( "ensembl_gene_id"),
-#      values=pathway,
-#      mart=mart
-#    )
-#    if (length(path_genes[,1])){
-#      colonENS= AddModuleScore(colonENS, 
-##                               features = path_genes, 
-#                               pool = NULL, 
-#                               nbin = 24, 
-#                               ctrl = 100,
-#                               k = FALSE, 
-#                               assay = NULL, name = as.data.frame(PA)[j,2], seed = 1)
-#      print(VlnPlot(colonENS, features = "The citric acid (TCA) cycle and respiratory electron transport1" , ncol = 3))
-#      print (paste(j,length(as.data.frame(PA)[,1]),sep = " pathway projection out of "))
-#    }
-    
-#  }
-  
-  ########################
-  
-  
-  
-  
-  ####################
-  
   
 }
+
+
+############custom pathwaysprojection
+#xx <- as.list(reactomePATHID2EXTID)
+PAS = c("R-HSA-69478","R-HSA-69002","R-HSA-68952","R-HSA-69306","R-HSA-68962","R-HSA-383280","R-HSA-350054","R-HSA-212436","R-HSA-977606","R-HSA-71406","R-HSA-71403","R-HSA-5675482","R-HSA-203615","R-HSA-75105","R-HSA-75109","R-HSA-6798695","R-HSA-71240","R-HSA-71403","R-HSA-109581","R-HSA-2559583","R-HSA-77288","R-HSA-211935","R-HSA-77289","R-HSA-70171","R-HSA-71336")
+
+for (j in 1: length(PAS)){
+  print(PAS[j])
+
+  pathway=c(PAS[j])
+  path_genes <- getBM(
+    filters="reactome",
+    attributes=c( "ensembl_gene_id"),
+    values=pathway,
+    mart=mart
+  )
+  if (length(path_genes[,1])>1){
+    pdf(file = paste(a_name,paste(PAS[j],"_VLN.pdf")),height = 4, width = 4)
+    colonENS= AddModuleScore(colonENS, 
+                             features = path_genes, 
+                             pool = NULL, 
+                             nbin = 24, 
+                             ctrl = 100,
+                             k = FALSE, 
+                             assay = NULL, name = as.data.frame(PAS)[j,], seed = 1)
+    print(VlnPlot(colonENS, features = paste(as.data.frame(PAS)[j,],"1",sep = "") , ncol = 3))
+    print (paste(j,length(as.data.frame(PAS)[j,]),sep = " pathway projection"))
+    dev.off()
+    pdf(file = paste(a_name,paste(PAS[j],"_fature_plots.pdf")),height = 3,width = 3)
+    print(FeaturePlot(object = colonENS, features = c(paste(as.data.frame(PAS)[j,],"1",sep = "")),cols = colorpanel(100,"grey100","grey90","darkgreen")))
+    dev.off()
+    
+  }
+  
+}
+
+########################
 
 #compare_pathways_clusters
 cRes <- compareCluster(DEGs_entrez_all[-1], fun="enrichPathway")
@@ -393,7 +437,8 @@ pdf(file = paste(a_name,"_COmpare_clusters.pdf"),height = 12,width = 12)
 dotplot(cRes,showCategory=30)
 dev.off()
 
-
+############
+############
 
 pdf(file = paste(a_name,"_VLN_plots_QC.pdf"),height = 3.5,width = 7)
 VlnPlot(colon, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
@@ -402,7 +447,8 @@ VlnPlot(colon, features = c("second.best.cor", "tenth.best.cor", "mean.cor"), nc
 
 dev.off()
 
-
+#################
+##############
 
 genesv=c(
   "ACAT1-ENSG00000075239",
@@ -410,32 +456,47 @@ genesv=c(
   "KYNU-ENSG00000115919",
   "LPIN1-ENSG00000134324",
   "FGF13-ENSG00000129682",
+ "NOS1-ENSG00000089250",
+ "SOD2-ENSG00000112096",
  
   "ACTA2-ENSG00000107796",
   "MYH11-ENSG00000276480",
-  "MYH10-ENSG00000133026",
+ "MYH10-ENSG00000133026",
+ "IGFBP7-ENSG00000163453"   ,
+
  
  "CXCL12-ENSG00000107562",
- "NOS1-ENSG00000089250",
+ 
  "nFeature_RNA", "nCount_RNA", "percent.mt",
  "second.best.cor", "tenth.best.cor", "mean.cor",
- "VDR-ENSG00000111424",
- "SOD2-ENSG00000112096",
+
+ 
  
 
   "CD14-ENSG00000170458",
   "C1QA-ENSG00000173372",
   "CD63-ENSG00000135404"  ,   
    "CD74-ENSG00000019582" ,
- "APOE-ENSG00000130203"
-# "CD4-ENSG000000106101"
- 
-# "KLF4-ENSG00000136826"
+ "APOE-ENSG00000130203",
+  "USP8-ENSG00000138592"  ,    
+ "ZNF286A-ENSG00000187607"  ,
+ "ATXN3-ENSG00000066427"   ,  "RPS6KA5-ENSG00000100784" ,  "SLC35E3-ENSG00000175782",  
+ "SLC35E3-ENSG00000175782",
+ "VDR-ENSG00000111424",
+  "ORAI2-ENSG00000160991",
+ "MYH11..Smooth.Muscle.Cells",
+ "CD3.CD8.",
+ "CD3.CD4.",
+ "CD34.",
+  "CD14.CD68."
  
   
   )
 
-
+pathways = c("Platelet degranulation 1","MHC class II antigen presentation1",
+             "Extracellular matrix organization1","Collagen degradation1",
+             "Iron uptake and transport1","Neutrophil degranulation1"
+             )
 
 for (i in 1:length(genesv)){
 print(genesv[i])
@@ -448,10 +509,17 @@ dev.off()
 for (i in 1:length(genesv)){
   print(genesv[i])
   pdf(file = paste(paste(a_name,genesv[i]),"_fature_plots.pdf"),height = 3,width = 3)
-  print(FeaturePlot(object = colon, features = c(genesv[i]),cols = topo.colors(100)))
+  print(FeaturePlot(object = colon, features = c(genesv[i]),cols = colorpanel(100,"grey100","grey90","darkgreen")))
   dev.off()
 }
 
+
+for (i in 1:length(pathways)){
+  print(pathways[i])
+  pdf(file = paste(paste(a_name,pathways[i]),"_fature_plots.pdf"),height = 3,width = 3)
+  print(FeaturePlot(object = colonENS, features = c(pathways[i]),cols = colorpanel(100,"grey100","grey90","darkgreen")))
+  dev.off()
+}
 
 
 
@@ -512,7 +580,8 @@ FeaturePlot(object = colon, features = "CYSLTR1-ENSG00000173198",cols = topo.col
 FeaturePlot(object = colon, features = "KIT-ENSG00000157404",cols = topo.colors(100))
 FeaturePlot(object = colon, features = "CCN5-ENSG00000064205",cols = topo.colors(100))
 FeaturePlot(object = colon, features = "MKI67-ENSG00000148773",cols = topo.colors(100))
-FeaturePlot(object = colonENS, features = "ENSG00000113721",cols = topo.colors(100))
+FeaturePlot(object = colonENS, features = "Neutrophil degranulation1",cols = topo.colors(100))
+FeaturePlot(object = colon, features = "MYH11..Smooth.Muscle.Cells",cols = topo.colors(100))
 FeaturePlot(object = colon, features = "VDR-ENSG00000111424",cols = topo.colors(100))
 
 
@@ -523,11 +592,11 @@ dev.off()
 library("dplyr")
 top10 <- colon.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_logFC)
 
-pdf(file = paste(a_name,"_heatmap_top10markers.pdf"),height = 3,width = 8)
-DoHeatmap(colon, features = genesv) + NoLegend()
+pdf(file = paste(a_name,"_heatmap_top10markers.pdf"),height = 8,width = 8)
+DoHeatmap(colon, features = top10$gene) + scale_fill_gradientn(colors = c("grey100","grey90","darkgreen"))
 dev.off()
-pdf(file = paste(a_name,"_heatmap_fewselectedmarkers.pdf"),height = 10,width = 10)
-DoHeatmap(colon, features = top10$gene) + NoLegend()
+pdf(file = paste(a_name,"_heatmap_fewselectedmarkers.pdf"),height = 3.5,width = 8)
+DoHeatmap(colon, features = genesv) + scale_fill_gradientn(colors = c("grey100","grey90","darkgreen"))
 dev.off()
 pdf(file = paste(a_name,"_heatmap_topselectedmarkers.pdf"),height = 10,width = 10)
 DoHeatmap(colon, features = c("CCDC144A-ENSG00000170160","CYSLTR1-ENSG00000173198",
@@ -543,7 +612,7 @@ DoHeatmap(colon, features = c("CCDC144A-ENSG00000170160","CYSLTR1-ENSG0000017319
                               "IGFBP7-ENSG00000163453"   , "USP8-ENSG00000138592"  ,    
                               "ZNF286A-ENSG00000187607"  ,
                                "ATXN3-ENSG00000066427"   ,  "RPS6KA5-ENSG00000100784" ,  "SLC35E3-ENSG00000175782",  
-                              "ORAI2-ENSG00000160991"  ,       
+                              "ORAI2-ENSG00000160991"  ,   "VDR-ENSG00000111424",    
                               
                                "CD81-ENSG00000110651"   ,   "C1QA-ENSG00000173372"    ,  "CD63-ENSG00000135404"  ,   
                                "C1QB-ENSG00000173369"   ,   "PLTP-ENSG00000100979"    ,  "GRN-ENSG00000030582"   ,   
@@ -556,10 +625,10 @@ DoHeatmap(colon, features = c("CCDC144A-ENSG00000170160","CYSLTR1-ENSG0000017319
                          
                               "APOE-ENSG00000130203"   ,   "APOC1-ENSG00000130208"  ,  
                               "SRGN-ENSG00000122862"   ,   "PKM-ENSG00000067225" ,     
-                              "IGLL5-ENSG00000254709"    )) + NoLegend()
+                              "IGLL5-ENSG00000254709"    )) + scale_fill_gradientn(colors = c("grey100","grey90","darkgreen"))
 dev.off()
 
-#correlate_data_with_single_cell_deconvolution
+#correlate_data_with_single_cell_deconvolution, this will be fixed...
 #pdf(file = paste(a_name,"_single_cell.pdf"),height = 4,width = 4)
 f=read.table(file = "MuSiC.txt",header = T,sep = "\t",row.names = 1)
 
@@ -579,8 +648,8 @@ for (i in c(1:7)){
 
 
 
-
-#correlate results with clinical data
+###################
+#correlate results with clinical data   this one will be changed for more proper method
 pdf(file = paste(a_name,"_clinical_data.pdf"),height = 5,width = 5)
 f=read.table(file = "clinical_data_good_selection.txt",header = T,sep = "\t",row.names = 1)
 
@@ -726,32 +795,10 @@ dev.off()
 
 
 
-f=read.table(file = "metadata_check.txt",header = T,sep = "\t",row.names = 1)
-
-The citric acid (TCA) cycle and respiratory electron transport1
-
-wilcox.test( list(stroke=colonENS@meta.data$"The citric acid (TCA) cycle and respiratory electron transport1"[f$symptoms_inclusion=="stroke"],
-              TIA=colonENS@meta.data$"The citric acid (TCA) cycle and respiratory electron transport1"[f$symptoms_inclusion=="TIA"],
-              asymptomatic=colonENS@meta.data$"The citric acid (TCA) cycle and respiratory electron transport1"[f$symptoms_inclusion=="ocular"],
-              ocular=colonENS@meta.data$"The citric acid (TCA) cycle and respiratory electron transport1"[f$symptoms_inclusion=="asymptomatic"]
-))
-
-col = c(1:6))
-boxplot( list(stroke=colonENS@meta.data$"Neutrophil degranulation1"[f$symptoms_inclusion=="stroke"],
-              TIA=colonENS@meta.data$"Neutrophil degranulation1"[f$symptoms_inclusion=="TIA"],
-              asymptomatic=colonENS@meta.data$"Neutrophil degranulation1"[f$symptoms_inclusion=="ocular"],
-              ocular=colonENS@meta.data$"Neutrophil degranulation1"[f$symptoms_inclusion=="asymptomatic"]
-              ),
-         
-         col = c(1:6))
-
-
-
-
-
 ## single R
-singler <- CreateSinglerObject(counts = seuset@raw.data[,rownames(seuset@meta.data)],       
-                               annot = seuset@ident,                                        # if is NULL it takes 10 clusters
+library(SingleR)
+singler <- CreateSinglerObject(counts = colonHG@assays$RNA@counts[,rownames(colonHG@meta.data)],       
+                               annot = Idents(colon),                                        # if is NULL it takes 10 clusters
                                project.name = "Single Cell Plaques", 
                                min.genes = 0,                          # if starting from seurat, set min.genes to 0 
                                technology = "CEL-seq2", 
@@ -762,14 +809,23 @@ singler <- CreateSinglerObject(counts = seuset@raw.data[,rownames(seuset@meta.da
                                variable.genes = "de",
                                fine.tune = FALSE, #Turn back on later (off for speedy debugging purposes)
                                do.signatures = TRUE,
-                               clusters = seuset@ident,
+                               clusters = Idents(colon),
                                do.main.types = TRUE, 
                                reduce.file.size = TRUE, 
                                numCores = 4
 )
-pdf(paste(result.folder, "/", Sys.Date(), " SingleR heatmap 16 communities2.pdf", sep = ""))
-SingleR.DrawHeatmap(SingleR = singler$singler[[1]]$SingleR.clusters.main, clusters = levels(singler$meta.data$orig.ident), top.n = 50)
+pdf(file = paste(a_name,"_SingleR_data.pdf"),height = 5,width = 4)
+SingleR.DrawHeatmap(SingleR = singler$singler[[1]]$SingleR.clusters.main, clusters = levels(singler$meta.data$orig.ident), top.n = 25)
+SingleR.DrawHeatmap(SingleR = singler$singler[[2]]$SingleR.clusters.main, clusters = levels(singler$meta.data$orig.ident), top.n = 25)
+
 dev.off()
+
+pdf(file = paste(a_name,"_SingleR_individual cells_data.pdf"),height = 5,width = 7)
+SingleR.DrawHeatmap(singler$singler[[1]]$SingleR.single.main,top.n = 25, clusters = Idents(colon),order.by.clusters = T)
+SingleR.DrawHeatmap(singler$singler[[2]]$SingleR.single.main,top.n = 25, clusters = Idents(colon),order.by.clusters = T)
+
+dev.off()
+
 
 
 #####survival
@@ -805,35 +861,76 @@ survdiff(Surv(ep_major_time,ep.major)~Idents.colon.,data = combined)
 autoplot(fit, conf.int = F,ylim = c(0.75,1),xlim = c(0,5))
 autoplot(fit, conf.int = T,ylim = c(0.75,1),xlim = c(0,5))
 
+
+
+
 dev.off()
 
+############### GWAS
+
+#CAD=read.table(file = "UKBB_CAD.genes.txt",header = T,sep = "\t",row.names = 1)[,1]
 
 
-f=read.table(file = "ep_composite.txt",header = T,sep = "\t",row.names = 1)
-surv=data.frame(Idents(colon))
-survv=f[names(Idents(colon)),c(1:2)]
-combined=cbind(surv,survv)
-combined$ep.composite=as.numeric(combined$ep_composite)
-
-combined$ep.composite[combined$ep.composite == 2] = 5
-combined$ep.composite[combined$ep.composite == 1] = 2
-combined$ep.composite[combined$ep.composite == 5] = 1
-fit = survfit(Surv(ep_composite_time,ep.composite)~Idents.colon.,data = combined,conf.int=TRUE)
-survdiff(Surv(ep_composite_time,ep.composite)~Idents.colon.,data = combined)
-autoplot(fit, conf.int = F)
-combined$Idents.colon.[combined$Idents.colon. == 3] = 1
-fit = survfit(Surv(ep_composite_time,ep.composite)~Idents.colon.,data = combined,conf.int=TRUE)
-survdiff(Surv(ep_composite_time,ep.composite)~Idents.colon.,data = combined)
-autoplot(fit, conf.int = T)
+for (thr in c(0.05,0.01,0.001,0.0001,0.00001, 0.000001)){
+CAD=read.table(file = "UKBB_CAD.MAGMAGenes.txt",header = T,sep = "\t")
+CAD = CAD[CAD[,9]<thr,1]
 
 
-combined$Idents.colon.[combined$Idents.colon. == 4] = 0
-combined$Idents.colon.[combined$Idents.colon. == 2] = 0
+print(length(CAD))
+
+pdf(file = paste(paste(a_name,thr),"GWAS.pdf"),height = 3,width = 12)
+par(mfrow=c(1,5))
+for (i in 0:4){
+  cluster.genes = colonENS.markers[colonENS.markers[,6] == i,7]
+  print(length(cluster.genes))
+  if (length(cluster.genes)>250){
+    cluster.genes = cluster.genes[1:250]
+  }
+  print(length(cluster.genes))
+  overlap = intersect(CAD,cluster.genes)
+
+  m=0
+  c=0
+  set.seed(123)
+  for (j in 1:10000){
+    random.genes = sample(row.names(raw.genecountsENS),length(cluster.genes),replace = T)
+    random.overlap = intersect(CAD,random.genes)
+    m[j]=length(random.overlap)
+    if (length(overlap)>length(random.overlap)){
+      c=c+1
+    }
+  }
+
+  
+  (hist.default(m, xlim = c(0,(2*max(m))), breaks = (max(m)+1),col = scales::hue_pal()(5)[i+1],main = paste("p = ",1-c/10000)))
+  (points((length(overlap)),0, pch = 20, cex = 4, col = "red"))
+  abline(v=(length(overlap)), col = "red",lwd = 4)
+}
+dev.off()
+}
+############# baseline table
+#install.packages("tidyverse")
+library(tidyverse)
+library(tableone)
+seurat_clusters <- read_tsv("Seurat_clusters_Michal_v13.txt")
+clinical_data <- read_tsv("bulk_RNAseq_clinical_data.txt")
+
+clinical_sel <- clinical_data %>% 
+  left_join(seurat_clusters, by = "study_number") %>% 
+  dplyr::select(study_number, cluster, sex, smokercurrent, dm_composite, risk614, hypertension1, cad_history, stroke_history, paod, symptoms_4g, stenosis_ipsilateral, stenosis_con_bin, med_statin_derived, med_statin_lld, med_all_antiplatelet, age, bmi, gfr_mdrd, totalchol, triglyceriden, ldl, hdl, plaquephenotype, epmajor_3years, ep_major) %>% 
+  mutate_at(vars(cluster, sex, smokercurrent, dm_composite, risk614, hypertension1, cad_history, stroke_history, paod, symptoms_4g, stenosis_ipsilateral, stenosis_con_bin, med_statin_derived, med_statin_lld, med_all_antiplatelet, plaquephenotype, epmajor_3years, ep_major), list(as.factor)) %>%
+  print()
 
 
-fit = survfit(Surv(ep_composite_time,ep.composite)~Idents.colon.,data = combined,conf.int=TRUE)
-survdiff(Surv(ep_composite_time,ep.composite)~Idents.colon.,data = combined)
-autoplot(fit, conf.int = T)
 
 
+listVars <- c("sex", "smokercurrent", "dm_composite","hypertension1", "cad_history", "stroke_history", "paod", "symptoms_4g", "stenosis_ipsilateral", "stenosis_con_bin", "med_statin_derived", "med_statin_lld", "med_all_antiplatelet", "age", "bmi", "gfr_mdrd", "totalchol", "triglyceriden", "ldl", "hdl", "plaquephenotype", "epmajor_3years", "ep_major")
+catVars <- c("cluster", "sex", "smokercurrent", "dm_composite", "risk614", "hypertension1", "cad_history", "stroke_history", "paod", "symptoms_4g", "stenosis_ipsilateral", "stenosis_con_bin", "med_statin_derived", "med_statin_lld", "med_all_antiplatelet", "plaquephenotype", "epmajor_3years", "ep_major")
 
+
+table1 <- CreateTableOne(vars = listVars, data = clinical_sel, factorVars = catVars)
+table2 <- CreateTableOne(listVars, clinical_sel, catVars, strata = c("cluster"))
+table_female <- CreateTableOne(listVars, clinical_sel[clinical_sel$sex=="female",], catVars, strata = c("cluster"))
+table3 <- CreateTableOne(listVars, clinical_sel, catVars, strata = c("plaquephenotype","sex"))
+table4 <- CreateTableOne(listVars, clinical_sel, catVars, strata = c("cluster","plaquephenotype"))
+table5 <- CreateTableOne(listVars, clinical_sel, catVars, strata = c("cluster","sex"))
