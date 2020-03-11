@@ -30,7 +30,7 @@ setwd("C:/Users/micha/OneDrive/Documents/R/atheroexpress/analysis_draft")
 
 raw.genecounts = read.table (file = "raw_counts.txt.minRib.txt.PC.txtt",header = T,sep = "\t",row.names = 1)
 
-#correct for UMI sampling
+#correct for UMI saturation the log = ln!!!! no log10 no log2 its natural log
 raw.genecounts=round(-4096*(log(1-(raw.genecounts/4096))))
 
 #check header
@@ -397,7 +397,8 @@ for (i in c(0:( max(as.numeric(colon$seurat_clusters))-1))){
 
 ############custom pathwaysprojection
 #xx <- as.list(reactomePATHID2EXTID)
-PAS = c("R-HSA-69478","R-HSA-69002","R-HSA-68952","R-HSA-69306","R-HSA-68962","R-HSA-383280","R-HSA-350054","R-HSA-212436","R-HSA-977606","R-HSA-71406","R-HSA-71403","R-HSA-5675482","R-HSA-203615","R-HSA-75105","R-HSA-75109","R-HSA-6798695","R-HSA-71240","R-HSA-71403","R-HSA-109581","R-HSA-2559583","R-HSA-77288","R-HSA-211935","R-HSA-77289","R-HSA-70171","R-HSA-71336")
+PAS = c("R-HSA-170834","R-HSA-69478","R-HSA-69002","R-HSA-68952","R-HSA-69306","R-HSA-68962","R-HSA-383280","R-HSA-350054","R-HSA-212436","R-HSA-977606","R-HSA-71406","R-HSA-71403","R-HSA-5675482","R-HSA-203615","R-HSA-75105","R-HSA-75109","R-HSA-6798695","R-HSA-71240","R-HSA-71403","R-HSA-109581","R-HSA-2559583","R-HSA-77288","R-HSA-211935","R-HSA-77289","R-HSA-70171","R-HSA-71336")
+mart <- useDataset("hsapiens_gene_ensembl", useMart("ensembl"))
 
 for (j in 1: length(PAS)){
   print(PAS[j])
@@ -549,8 +550,7 @@ VlnPlot(colonENS,x.lab.rot=T, features = c("ENSG00000064205"))   #PDGFRB
 VlnPlot(colon,x.lab.rot=T, features = c("CD4-ENSG00000010610")) 
 VlnPlot(colon,x.lab.rot=T, features = c("VDR-ENSG00000111424"))
 VlnPlot(colon,x.lab.rot=T, features = c("CD3E-ENSG00000198851"))
-
-
+VlnPlot(colon,x.lab.rot=T, features = c("SPIC-ENSG00000166211"))
 
 
 
@@ -583,6 +583,10 @@ FeaturePlot(object = colon, features = "MKI67-ENSG00000148773",cols = topo.color
 FeaturePlot(object = colonENS, features = "Neutrophil degranulation1",cols = topo.colors(100))
 FeaturePlot(object = colon, features = "MYH11..Smooth.Muscle.Cells",cols = topo.colors(100))
 FeaturePlot(object = colon, features = "VDR-ENSG00000111424",cols = topo.colors(100))
+
+FeaturePlot(object = colon, features = "SPIC-ENSG00000166211",cols = topo.colors(100))
+
+
 
 
 
@@ -626,6 +630,36 @@ DoHeatmap(colon, features = c("CCDC144A-ENSG00000170160","CYSLTR1-ENSG0000017319
                               "APOE-ENSG00000130203"   ,   "APOC1-ENSG00000130208"  ,  
                               "SRGN-ENSG00000122862"   ,   "PKM-ENSG00000067225" ,     
                               "IGLL5-ENSG00000254709"    )) + scale_fill_gradientn(colors = c("grey100","grey90","darkgreen"))
+
+colon.cluster.averages <- AverageExpression(colon, return.seurat = TRUE)
+DoHeatmap(colon.cluster.averages, features = c("CCDC144A-ENSG00000170160","CYSLTR1-ENSG00000173198",
+                              "KYNU-ENSG00000115919", "ADAM32-ENSG00000275594",  
+                              "CYP46A1-ENSG00000036530",   "TMEM212-ENSG00000186329",
+                              "SOD2-ENSG00000112096",   
+                              
+                              "PCSK5-ENSG00000099139", "CALD1-ENSG00000122786",   
+                              "MYH11-ENSG00000276480"   ,  "DSTN-ENSG00000125868" ,
+                              "ACTA2-ENSG00000107796"  ,    "LMOD1-ENSG00000163431" ,  
+                              "MYH10-ENSG00000133026"   , 
+                              
+                              "IGFBP7-ENSG00000163453"   , "USP8-ENSG00000138592"  ,    
+                              "ZNF286A-ENSG00000187607"  ,
+                              "ATXN3-ENSG00000066427"   ,  "RPS6KA5-ENSG00000100784" ,  "SLC35E3-ENSG00000175782",  
+                              "ORAI2-ENSG00000160991"  ,   "VDR-ENSG00000111424",    
+                              
+                              "CD81-ENSG00000110651"   ,   "C1QA-ENSG00000173372"    ,  "CD63-ENSG00000135404"  ,   
+                              "C1QB-ENSG00000173369"   ,   "PLTP-ENSG00000100979"    ,  "GRN-ENSG00000030582"   ,   
+                              "SRGN-ENSG00000122862"   ,   "TYROBP-ENSG00000011600"  ,  "CD74-ENSG00000019582"  ,   
+                              "SAT1-ENSG00000130066"      , 
+                              
+                              "CTSB-ENSG00000164733"   ,  
+                              "IFI30-ENSG00000216490"  ,   "FTH1-ENSG00000167996"    ,  "PSAP-ENSG00000197746"    , 
+                              "FTL-ENSG00000087086"    ,   "GPNMB-ENSG00000136235"  ,   "TYROBP-ENSG00000011600"  , 
+                              
+                              "APOE-ENSG00000130203"   ,   "APOC1-ENSG00000130208"  ,  
+                              "SRGN-ENSG00000122862"   ,   "PKM-ENSG00000067225" ,     
+                              "IGLL5-ENSG00000254709"    ),draw.lines = F) + scale_fill_gradientn(colors = c("grey100","grey90","darkgreen"))
+
 dev.off()
 
 #correlate_data_with_single_cell_deconvolution, this will be fixed...
@@ -912,25 +946,344 @@ dev.off()
 #install.packages("tidyverse")
 library(tidyverse)
 library(tableone)
+#write.table(data.frame(Idents(colon)),file = "Seurat_clusters_Michal_vXX.txt" ,sep = "\t",quote = F)
 seurat_clusters <- read_tsv("Seurat_clusters_Michal_v13.txt")
+
+
 clinical_data <- read_tsv("bulk_RNAseq_clinical_data.txt")
 
 clinical_sel <- clinical_data %>% 
   left_join(seurat_clusters, by = "study_number") %>% 
-  dplyr::select(study_number, cluster, sex, smokercurrent, dm_composite, risk614, hypertension1, cad_history, stroke_history, paod, symptoms_4g, stenosis_ipsilateral, stenosis_con_bin, med_statin_derived, med_statin_lld, med_all_antiplatelet, age, bmi, gfr_mdrd, totalchol, triglyceriden, ldl, hdl, plaquephenotype, epmajor_3years, ep_major) %>% 
+  dplyr::select(study_number, cluster, sex, smokercurrent, dm_composite, risk614, hypertension1, cad_history, stroke_history, paod, symptoms_4g, stenosis_ipsilateral, stenosis_con_bin, med_statin_derived, med_statin_lld, med_all_antiplatelet, age, bmi, gfr_mdrd, totalchol, triglyceriden, ldl, hdl, plaquephenotype, epmajor_3years, ep_major, time_event_or,fabp4_serum_luminex,	cst3_pg_ug,	cst3_serum_luminex,	hdac9,	vegfa_plasma,	vwf_plasma,	pla2_plasma,	pcsk9_plasma,	gdf15_plasma,	ctni_plasma,	rantes_plasma,	hscrp_plasma,	tat_plasma,	mpo_plasma,	ntprobnp_plasma,	pdgf_bb_plasma,	opg_plasma, il6) %>% 
   mutate_at(vars(cluster, sex, smokercurrent, dm_composite, risk614, hypertension1, cad_history, stroke_history, paod, symptoms_4g, stenosis_ipsilateral, stenosis_con_bin, med_statin_derived, med_statin_lld, med_all_antiplatelet, plaquephenotype, epmajor_3years, ep_major), list(as.factor)) %>%
   print()
 
 
 
 
-listVars <- c("sex", "smokercurrent", "dm_composite","hypertension1", "cad_history", "stroke_history", "paod", "symptoms_4g", "stenosis_ipsilateral", "stenosis_con_bin", "med_statin_derived", "med_statin_lld", "med_all_antiplatelet", "age", "bmi", "gfr_mdrd", "totalchol", "triglyceriden", "ldl", "hdl", "plaquephenotype", "epmajor_3years", "ep_major")
+
+listVars <- c("sex", "smokercurrent", "dm_composite","hypertension1", "cad_history", "stroke_history", "paod", "symptoms_4g", "stenosis_ipsilateral", "stenosis_con_bin", "med_statin_derived", "med_statin_lld", "med_all_antiplatelet", "age", "bmi", "gfr_mdrd", "totalchol", "triglyceriden", "ldl", "hdl", "plaquephenotype", "epmajor_3years", "ep_major","time_event_or","fabp4_serum_luminex", "cst3_pg_ug", "cst3_serum_luminex", "hdac9", "vegfa_plasma", "vwf_plasma", 	"pla2_plasma", "pcsk9_plasma", "gdf15_plasma", "ctni_plasma","rantes_plasma", "hscrp_plasma", "tat_plasma", "mpo_plasma", "ntprobnp_plasma", "pdgf_bb_plasma", "opg_plasma", "il6")
 catVars <- c("cluster", "sex", "smokercurrent", "dm_composite", "risk614", "hypertension1", "cad_history", "stroke_history", "paod", "symptoms_4g", "stenosis_ipsilateral", "stenosis_con_bin", "med_statin_derived", "med_statin_lld", "med_all_antiplatelet", "plaquephenotype", "epmajor_3years", "ep_major")
 
 
 table1 <- CreateTableOne(vars = listVars, data = clinical_sel, factorVars = catVars)
 table2 <- CreateTableOne(listVars, clinical_sel, catVars, strata = c("cluster"))
+beeswarm(clinical_sel$time_event_or ~ clinical_sel$cluster)
+beeswarm(clinical_sel$hscrp_plasma ~ clinical_sel$cluster,ylim = c(0,1000))
 table_female <- CreateTableOne(listVars, clinical_sel[clinical_sel$sex=="female",], catVars, strata = c("cluster"))
-table3 <- CreateTableOne(listVars, clinical_sel, catVars, strata = c("plaquephenotype","sex"))
+table3 <- CreateTableOne(listVars, clinical_sel, catVars, strata = c("plaquephenotype"))
 table4 <- CreateTableOne(listVars, clinical_sel, catVars, strata = c("cluster","plaquephenotype"))
 table5 <- CreateTableOne(listVars, clinical_sel, catVars, strata = c("cluster","sex"))
+
+################
+#################
+pdf(file = paste(a_name,"dists_symptoms_4g_cluster.pdf"),height = 6,width = 8)
+par(mfrow=c(2,3),mar = c(0,0,4,0))
+for (i in c(3,4,2,5,1)){
+  print (pie(table(clinical_sel$symptoms_4g, clinical_sel$cluster)[,i],main = paste ("cluster ",colnames(table(clinical_sel$symptoms_4g, clinical_sel$cluster))[i],sep = ""),col = c(1,2,3,4),cex = 1.3))
+}
+dev.off()
+
+
+pdf(file = paste(a_name,"dists_symptoms_4g_plaque_phenotype.pdf"),height = 3,width = 8)
+par(mfrow=c(1,3),mar = c(0,0,4,0))
+for (i in 1:3){
+  print (pie(table(clinical_sel$symptoms_4g, clinical_sel$plaquephenotype)[,i],main = paste ("cluster ",colnames(table(clinical_sel$symptoms_4g, clinical_sel$plaquephenotype))[i],sep = ""),col = c(1,2,3,4),cex = 1.3))
+}
+dev.off()
+
+pdf(file = paste(a_name,"dists_symptoms_4g_plaque_phenotyp_clustere.pdf"),height = 7,width = 10)
+par(mfrow=c(3,5),mar = c(0,0,4,0))
+for (j in 1:3){
+ for (i in c(3,4,2,5,1)){
+
+
+    print (pie(table(clinical_sel$cluster,clinical_sel$symptoms_4g, clinical_sel$plaquephenotype)[i,,j],main =paste("n=",sum(table(clinical_sel$cluster,clinical_sel$symptoms_4g, clinical_sel$plaquephenotype)[i,,j])),col = c(1,2,3,4),cex = 1.3))
+    
+    
+  }
+}
+dev.off()
+pdf(file = paste(a_name,"dists_ep_major3y_plaque_phenotyp_clustere.pdf"),height = 7,width = 10)
+par(mfrow=c(3,5),mar = c(0,0,4,0))
+for (j in 1:3){
+  for (i in c(3,4,2,5,1)){
+    
+    
+    print (pie(table(clinical_sel$cluster,clinical_sel$epmajor_3years, clinical_sel$plaquephenotype)[i,,j],main =paste("n=",sum(table(clinical_sel$cluster,clinical_sel$epmajor_3years, clinical_sel$plaquephenotype)[i,,j])),col = c(1,2,3,4),cex = 1.3))
+    
+    
+  }
+}
+dev.off()
+pdf(file = paste(a_name,"dists_sex_plaque_phenotyp_clustere.pdf"),height = 7,width = 10)
+par(mfrow=c(3,5),mar = c(0,0,4,0))
+for (j in 1:3){
+  for (i in c(3,4,2,5,1)){
+    
+    
+    print (pie(table(clinical_sel$cluster,clinical_sel$sex, clinical_sel$plaquephenotype)[i,,j],main =paste("n=",sum(table(clinical_sel$cluster,clinical_sel$sex, clinical_sel$plaquephenotype)[i,,j])),col = c(1,2,3,4),cex = 1.3))
+    
+    
+  }
+}
+dev.off()
+
+
+pdf(file = paste(a_name,"dists_paod_plaque_phenotyp_clustere.pdf"),height = 7,width = 10)
+par(mfrow=c(3,5),mar = c(0,0,4,0))
+for (j in 1:3){
+  for (i in c(3,4,2,5,1)){
+    
+    
+    print (pie(table(clinical_sel$cluster,clinical_sel$paod, clinical_sel$plaquephenotype)[i,,j],main =paste("n=",sum(table(clinical_sel$cluster,clinical_sel$paod, clinical_sel$plaquephenotype)[i,,j])),col = c(1,2,3,4),cex = 1.3))
+    
+    
+  }
+}
+dev.off()
+
+pdf(file = paste(a_name,"dists_med_statin_derived_plaque_phenotyp_clustere.pdf"),height = 7,width = 10)
+par(mfrow=c(3,5),mar = c(0,0,4,0))
+for (j in 1:3){
+  for (i in c(3,4,2,5,1)){
+    
+    
+    print (pie(table(clinical_sel$cluster,clinical_sel$med_statin_derived, clinical_sel$plaquephenotype)[i,,j],main =paste("n=",sum(table(clinical_sel$cluster,clinical_sel$med_statin_derived, clinical_sel$plaquephenotype)[i,,j])),col = c(1,2,3,4),cex = 1.3))
+    
+    
+  }
+}
+dev.off()
+med_statin_derived
+
+
+table(clinical_sel$plaquephenotype, clinical_sel$cluster)[,c(3,4,2,5,1)]
+############GWAS2
+
+## loop over different clusters and save differential exression data
+# create dataframe
+differential.expression.clusters <- data.frame()
+
+cluster.number = 5
+identity.classes = c(0,1,2,3,4)
+# prepare all possible combinations
+choices <- choose(cluster.number, 2)        # identify the number of possible pairs
+combinations <- combn(cluster.number, 2)    # create those pairs
+
+# pairwise comparison for differential expression
+for (choice in 1:choices) {
+  # select the cluster numbers to run
+  cluster1 <- combinations[,choice][1] # the first index of the combination
+  cluster2 <- combinations[,choice][2] # the second index of the combination
+  
+  # input function must be character
+  cluster1 <- identity.classes[cluster1]
+  cluster2 <- identity.classes[cluster2]
+  
+  # run formula
+  pairwise.comparison <- FindMarkers(object = colonHG,
+                                     ident.1 = cluster1 ,
+                                     ident.2 = cluster2,
+                                     logfc.threshold = 0.6, #default 0.25
+                                     min.pct = 0.1,
+                                     test.use = "wilcox") # default wilcox
+  
+  # add gene names for later
+  pairwise.comparison$gene <- rownames(pairwise.comparison)
+  # add clusters
+  pairwise.comparison$cluster1 <- cluster1
+  pairwise.comparison$cluster2 <- cluster2
+  # select only values with p adjusted of certain value
+  pairwise.comparison <- pairwise.comparison[(pairwise.comparison$p_val_adj <= .05), ]
+  # bind to dataframe
+  differential.expression.clusters <- rbind(differential.expression.clusters, pairwise.comparison)
+  
+}
+
+dim(differential.expression.clusters)
+
+## differential expression findAllMarkers
+differential.expression.all <- FindAllMarkers(object = colonHG,
+                                              logfc.threshold = 0.6,
+                                              min.pct = 0.1,
+                                              only.pos = FALSE,
+                                              test.use = "wilcox")
+
+dim(differential.expression.all)
+differential.expression.all <- differential.expression.all[(differential.expression.all$p_val_adj <= 0.05),]
+dim(differential.expression.all)
+
+## combine differential expression based on gene names, not rownames
+differential.expression.data <- union(differential.expression.all$gene, differential.expression.clusters$gene)
+length(differential.expression.data)
+length(unique(differential.expression.data))
+
+## save the table with results
+# write.table(differential.expression.clusters, "DEG_one_vs_one.txt")
+# write.table(differential.expression.all, "DEG_one_vs_all.txt")
+# write.table(differential.expression.data, "All_DEG_(gene_names).txt")
+
+#-----------------------------------------------------------------------------------------
+### K means
+## K means with average expression
+
+# calculate average expression with the genes from differential.expression.data that are present in the object
+average.expression <-  AverageExpression(colonHG,
+                                         features = differential.expression.data,
+                                         return.seurat = TRUE)
+
+# save object
+#saveRDS(average.expression, "seuset_average_expression_DEG.RDS")
+
+## K means
+geneclusters <- 8
+
+## calculate Kmeans
+# option 1 (seurat heatmap)
+
+set.seed(576)
+Kmeans.object <- kmeans(average.expression@assays$RNA@scale.data, centers = geneclusters)
+Kmeans.object$cluster["MYH11"]
+image(Kmeans.object$centers)
+heatmap(Kmeans.object$centers, col = colorpanel(100,"grey100","grey90","darkgreen"))
+Kmeans.object$cluster[Kmeans.object$cluster==7]
+
+
+
+for (thr in c(0.05,0.01,0.001,0.0001,0.00001, 0.000001)){
+  CAD=read.table(file = "UKBB_CAD.MAGMAGenes.txt",header = T,sep = "\t")
+  CAD = CAD[CAD[,9]<thr,10]
+  
+  
+  print(length(CAD))
+  
+  pdf(file = paste(paste(a_name,thr),"GWAS_kmean.pdf"),height = 3,width = 12)
+  par(mfrow=c(2,4))
+  for (i in 1:geneclusters){
+    cluster.genes = Kmeans.object$cluster[Kmeans.object$cluster==i]
+    print(length(cluster.genes))
+    if (length(cluster.genes)>250){
+      cluster.genes = cluster.genes[1:250]
+    }
+    print(length(cluster.genes))
+    overlap = intersect(CAD,names(cluster.genes))
+    
+    m=0
+    c=0
+    set.seed(123)
+    for (j in 1:10000){
+      random.genes = sample(row.names(raw.genecountsHG),length(cluster.genes),replace = T)
+      random.overlap = intersect(CAD,random.genes)
+      m[j]=length(random.overlap)
+      if (length(overlap)>length(random.overlap)){
+        c=c+1
+      }
+    }
+    
+    
+    (hist.default(m, xlim = c(0,(2*max(m))), breaks = (max(m)+1),col = scales::hue_pal()(5)[i+1],main = paste("p = ",1-c/10000)))
+    (points((length(overlap)),0, pch = 20, cex = 4, col = "red"))
+    abline(v=(length(overlap)), col = "red",lwd = 4)
+  }
+  dev.off()
+}
+
+# save object
+#saveRDS(average.expression, "seuset_Kmeans_object_average_expression_DEG.RDS")
+
+###################
+seuset <- readRDS("temp.seuset.RDS")
+pdf(file = paste(a_name,"_Feature_plots_genes.pdf"),height = 3.5,width = 3.5)
+FeaturePlot(object = seuset, features = "FGF13",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seuset, features = "ACTA2",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seuset, features = "HBB",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seuset, features = "MYH11",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seuset, features = "CXCL12",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seuset, features = "ACKR1",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seuset, features = "KLF4",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seuset, features = "APOE-ENSG00000130203",cols = topo.colors(100))
+FeaturePlot(object = seuset, features = "XIST-ENSG00000229807",cols = topo.colors(100))
+FeaturePlot(object = seuset, features = "ACTB-ENSG00000075624",cols = topo.colors(100))
+FeaturePlot(object = seuset, features = "MYH11-ENSG00000276480",cols = topo.colors(100))
+FeaturePlot(object = colon, features = "STARD9-ENSG00000159433",cols = topo.colors(100))
+FeaturePlot(object = colon, features = "MTATP8P2-ENSG00000229604",cols = topo.colors(100))
+FeaturePlot(object = colon, features = "CD74-ENSG00000019582",cols = topo.colors(100))
+FeaturePlot(object = colon, features = "CYSLTR1-ENSG00000173198",cols = topo.colors(100))
+FeaturePlot(object = seuset, features = "IFI30",cols = colorpanel(100,"grey90","darkgreen","black"))
+
+FeaturePlot(object = colon, features = "CSF3R-ENSG00000119535",cols = topo.colors(100))
+FeaturePlot(object = colon, features = "CYSLTR1-ENSG00000173198",cols = topo.colors(100))
+FeaturePlot(object = colon, features = "KIT-ENSG00000157404",cols = topo.colors(100))
+FeaturePlot(object = seuset, features = "USP8",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = colon, features = "MKI67-ENSG00000148773",cols = topo.colors(100))
+FeaturePlot(object = colonENS, features = "Neutrophil degranulation1",cols = topo.colors(100))
+FeaturePlot(object = seuset, features = "C1QA",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seuset, features = "CD63",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seuset, features = "SOD2", cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seuset, features = "TYROBP",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seuset, features = "CTSB",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seuset, features = "ADAM32", cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seuset, features = "SLC35E3",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seuset, features = "KYNU",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seuset, features = "CTSB", cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = colon, features = "SPIC-ENSG00000166211",cols = topo.colors(100))
+
+SLC35E3
+
+
+
+dev.off()
+
+
+
+
+DoHeatmap(seusetild_v3, features = c("CCDC144A","CYSLTR1","KYNU", "ADAM32", "CYP46A1",   "TMEM212","SOD2",   
+                                     "PCSK5", "CALD1",   "MYH11"   ,  "DSTN" , "ACTA2"  ,    "LMOD1" , "MYH10", 
+                                     "IGFBP7","USP8","ZNF286A","ATXN3", "RPS6KA5", "SLC35E3", "ORAI2" ,"VDR",    
+                                     "CD81" ,   "C1QA"    ,  "CD63"  ,  "C1QB"   , "PLTP", "GRN",   
+                                     "SRGN"   ,   "TYROBP"  ,  "CD74" ,"SAT1" ,
+                                     "CTSB"   ,   "IFI30"  ,   "FTH1"    ,  "PSAP" , "FTL"    ,   "GPNMB"  , "TYROBP",
+                                     "APOE"   ,   "APOC1"  ,  
+                                     "SRGN"   ,   "PKM" ,     
+                                     "IGLL5" ),) + scale_fill_gradientn(colors = c("grey100","grey90","darkgreen"))
+
+seusetild_v3.cluster.averages <- AverageExpression(seusetild_v3, return.seurat = TRUE)
+DoHeatmap(seusetild_v3.cluster.averages, features = c("CCDC144A","CYSLTR1","KYNU", "ADAM32", "CYP46A1",   "TMEM212","SOD2",
+                                     "PCSK5", "CALD1",   "MYH11"   ,  "DSTN" , "ACTA2"  ,    "LMOD1" , "MYH10", 
+                                     "IGFBP7","USP8","ZNF286A","ATXN3", "RPS6KA5", "SLC35E3", "ORAI2" ,"VDR",    
+                                     "CD81" ,   "C1QA"    ,  "CD63"  ,  "C1QB"   , "PLTP", "GRN",   
+                                     "SRGN"   ,   "TYROBP"  ,  "CD74" ,"SAT1" ,
+                                     "CTSB"   ,   "IFI30"  ,   "FTH1"    ,  "PSAP" , "FTL"    ,   "GPNMB"  , "TYROBP",
+                                     "APOE"   ,   "APOC1"  ,  
+                                     "SRGN"   ,   "PKM" ,     
+                                     "IGLL5" ),draw.lines = F) + scale_fill_gradientn(colors = c("grey100","grey90","darkgreen"))
+
+
+##############
+load("all.seur.combined.RData")
+seusetild_v3 <- UpdateSeuratObject(object = all.seur.combined)
+FeaturePlot(object = seusetild_v3, features = "FGF13",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seusetild_v3, features = "KYNU",cols = colorpanel(100,"grey90","darkgreen","black"))
+
+
+VlnPlot(object = seuset, features = "ACTA2")
+VlnPlot(object = seuset, features = "MYH11")
+VlnPlot(object = seuset, features = "MYH10")
+VlnPlot(object = seuset, features = "SOD2")
+VlnPlot(object = seuset, features = "IL6")
+VlnPlot(object = seuset, features = "XBP1")
+FeaturePlot(object = colonHG, features = "NOS1")
+FeaturePlot(object = colonHG, features = "XBP1")
+
+###############Y chrom
+VlnPlot(object = colonHG, features = "ZFY")
+VlnPlot(object = colonHG, features = "SRY")
+VlnPlot(object = colonHG, features = "TSPY2")
+VlnPlot(object = colonHG, features = "AMELY")
+
+VlnPlot(object = colonHG, features = "SRY")
+VlnPlot(object = colonHG, features = "UTY")
+VlnPlot(object = colonHG, features = "PRY")
+
+ 
