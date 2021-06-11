@@ -54,6 +54,20 @@ raw.genecounts=raw.genecounts[grep("PGM5P2",row.names(raw.genecounts),invert=TRU
 raw.genecounts=raw.genecounts[grep("MAB21L3",row.names(raw.genecounts),invert=TRUE),]
 raw.genecounts=raw.genecounts[grep("EEF1A1",row.names(raw.genecounts),invert=TRUE),]
 raw.genecounts=raw.genecounts[grep("PGM5P2",row.names(raw.genecounts),invert=TRUE),]
+#
+
+pdf(file = paste(a_name,"_all_genes.pdf"),height = 4,width = 4)
+raw.genecounts.all = read.table (file = "raw_counts_all.txt",header = T,sep = "\t",row.names = 1)
+hist(colSums(raw.genecounts.all > 0),  ylab="# samples", xlab = "genes detected",main = "",col = 1,breaks = 30)
+dev.off()
+
+
+
+pdf(file = paste(a_name,"_genes_in_analysis.pdf"),height = 4,width = 4)
+hist(colSums(raw.genecounts > 0),  ylab="# samples", xlab = "protein coding genes with HGNC name",main = "",col = 1)
+dev.off()
+
+
 
 #Scale before quantile normalization
 raw.genecounts=t(t(raw.genecounts)/colSums(raw.genecounts))*100000
@@ -436,11 +450,58 @@ for (j in 1: length(PAS)){
 
 #compare_pathways_clusters
 cRes <- compareCluster(DEGs_entrez_all[-1], fun="enrichPathway")
-pdf(file = paste(a_name,"_COmpare_clusters.pdf"),height = 12,width = 12)
+pdf(file = paste(a_name,"_COmpare_clusters_pathway.pdf"),height = 12,width = 12)
 dotplot(cRes,showCategory=30)
 dev.off()
 
 ############
+
+
+############custom pathwaysprojection in single cells
+load("all.seur.combined.RData")
+seusetild_v3 <- UpdateSeuratObject(object = all.seur.combined)
+
+#xx <- as.list(reactomePATHID2EXTID)
+PAS = c("R-HSA-170834","R-HSA-69478","R-HSA-69002","R-HSA-68952","R-HSA-69306","R-HSA-68962","R-HSA-383280","R-HSA-350054","R-HSA-212436","R-HSA-977606","R-HSA-71406","R-HSA-71403","R-HSA-5675482","R-HSA-203615","R-HSA-75105","R-HSA-75109","R-HSA-6798695","R-HSA-71240","R-HSA-71403","R-HSA-109581","R-HSA-2559583","R-HSA-77288","R-HSA-211935","R-HSA-77289","R-HSA-70171","R-HSA-71336")
+mart <- useDataset("hsapiens_gene_ensembl", useMart("ensembl"))
+
+for (j in 1: length(PAS)){
+  print(PAS[j])
+  
+  pathway=c(PAS[j])
+  path_genes <- getBM(
+    filters="reactome",
+    attributes=c( "hgnc_symbol"),
+    values=pathway,
+    mart=mart
+  )
+  if (length(path_genes[,1])>1){
+    pdf(file = paste(a_name,paste(PAS[j],"SC_projestion_VLN.pdf")),height = 7, width = 7)
+    seusetild_v3= AddModuleScore(seusetild_v3, 
+                             features = path_genes, 
+                             pool = NULL, 
+                             nbin = 24, 
+                             ctrl = 100,
+                             k = FALSE, 
+                             assay = NULL, name = as.data.frame(PAS)[j,], seed = 1)
+    print(VlnPlot(seusetild_v3, features = paste(as.data.frame(PAS)[j,],"1",sep = "") , ncol = 3))
+    print (paste(j,length(as.data.frame(PAS)[j,]),sep = " pathway projection"))
+    dev.off()
+    pdf(file = paste(a_name,paste(PAS[j],"_fature_plots.pdf")),height = 5,width = 5)
+    print(FeaturePlot(object = seusetild_v3, features = c(paste(as.data.frame(PAS)[j,],"1",sep = "")),pt.size=0.1,cols = colorpanel(100,"grey100","grey90","darkgreen")))
+    dev.off()
+    
+  }
+  
+}
+
+
+
+
+
+
+
+
 ############
 
 pdf(file = paste(a_name,"_VLN_plots_QC.pdf"),height = 3.5,width = 7)
@@ -587,7 +648,7 @@ FeaturePlot(object = colon, features = "MYH11..Smooth.Muscle.Cells",cols = topo.
 FeaturePlot(object = colon, features = "VDR-ENSG00000111424",cols = topo.colors(100))
 
 FeaturePlot(object = colon, features = "SPIC-ENSG00000166211",cols = topo.colors(100))
-
+FeaturePlot(object = colonHG, features = "ENO2",cols = topo.colors(100))
 
 
 
@@ -962,192 +1023,38 @@ clinical_data <- read_tsv("bulk_RNAseq_clinical_data_MM.txt")
 
 clinical_sel <- clinical_data %>% 
   left_join(seurat_clusters, by = "study_number") %>% 
-  dplyr::select(study_number, cluster, sex, smokercurrent, dm_composite, risk614, hypertension1, cad_history, stroke_history, paod, symptoms_4g, stenosis_ipsilateral, stenosis_con_bin, med_statin_derived, med_statin_lld, med_all_antiplatelet, age, bmi, gfr_mdrd, totalchol, triglyceriden, ldl, hdl, plaquephenotype, epmajor_3years, ep_major, time_event_or,fabp4_serum_luminex,	cst3_pg_ug,	cst3_serum_luminex,	hdac9,	vegfa_plasma,	vwf_plasma,	pla2_plasma,	pcsk9_plasma,	gdf15_plasma,	ctni_plasma,	rantes_plasma,	hscrp_plasma,	tat_plasma,	mpo_plasma,	ntprobnp_plasma,	pdgf_bb_plasma,	opg_plasma, il6,symptoms_2g,macmean0,	smcmean0, fat, thrombus,	thrombus_organization, thrombus_organization_v2,	thrombus_location,	calcification,	collagen	,smc	,smc_location	,macrophages,	macrophages_location,	smc_macrophages_ratio,	media,	neutrophils,	mast_cells_plaque,	vessel_density, iph_bin,PC_1,PC_2,PC_3,PC_4,PC_5,PC_6,PC_7,PC_8,PC_9,PC_10,PC_11,PC_12,PC_13,PC_14,PC_15,CD3CD8,CD14CD68, MYH11SmoothMuscleCells,CD79ABCells,CD3CD4,CD34,KITMastCells) %>% 
-  mutate_at(vars(cluster, sex, smokercurrent, dm_composite, risk614, hypertension1, cad_history, stroke_history, paod, symptoms_4g, stenosis_ipsilateral, stenosis_con_bin, med_statin_derived, med_statin_lld, med_all_antiplatelet, plaquephenotype, epmajor_3years, ep_major,symptoms_2g,fat, thrombus,	thrombus_organization,	thrombus_organization_v2,	thrombus_location,	calcification,	collagen	,smc	,smc_location	,macrophages,	macrophages_location,	smc_macrophages_ratio,	media,iph_bin), list(as.factor)) %>%
+  dplyr::select(study_number, cluster, sex, smokercurrent, dm_composite, risk614, hypertension1, cad_history, stroke_history, paod, symptoms_4g, stenosis_ipsilateral, stenosis_con_bin, med_statin_derived, med_statin_lld, med_all_antiplatelet, age, bmi, gfr_mdrd, totalchol, triglyceriden, ldl, hdl, plaquephenotype, epmajor_3years, ep_major, time_event_or,fabp4_serum_luminex,	cst3_pg_ug,	cst3_serum_luminex,	hdac9,	vegfa_plasma,	vwf_plasma,	pla2_plasma,	pcsk9_plasma,	gdf15_plasma,	ctni_plasma,	rantes_plasma,	hscrp_plasma,	tat_plasma,	mpo_plasma,	ntprobnp_plasma,	pdgf_bb_plasma,	opg_plasma, il6,macmean0,	smcmean0, fat, thrombus,	thrombus_organization, thrombus_organization_v2,	thrombus_location,	calcification,	collagen	,smc	,smc_location	,macrophages,	macrophages_location,	smc_macrophages_ratio,	media,	neutrophils,	mast_cells_plaque,	vessel_density, iph_bin,PC_1,PC_2,PC_3,PC_4,PC_5,PC_6,PC_7,PC_8,PC_9,PC_10,PC_11,PC_12,PC_13,PC_14,PC_15,CD3CD8,CD14CD68, MYH11SmoothMuscleCells,CD79ABCells,CD3CD4,CD34,KITMastCells) %>% 
+  mutate_at(vars(cluster, sex, smokercurrent, dm_composite, risk614, hypertension1, cad_history, stroke_history, paod, symptoms_4g, stenosis_ipsilateral, stenosis_con_bin, med_statin_derived, med_statin_lld, med_all_antiplatelet, plaquephenotype, epmajor_3years, ep_major,fat, fat, thrombus,	thrombus_organization, thrombus_organization_v2,	thrombus_location,	calcification,	collagen	,smc	,smc_location	,macrophages,	macrophages_location,	smc_macrophages_ratio,	media,fat, thrombus,	thrombus_organization, thrombus_organization_v2,	thrombus_location,	calcification,	collagen	,smc	,smc_location	,macrophages,	macrophages_location,	smc_macrophages_ratio,	media,	iph_bin  ,epmajor_3years ), list(as.factor)) %>%
   print()
 
 
 
 
-listVars <- c("sex", "smokercurrent", "dm_composite","hypertension1", "cad_history", "stroke_history", "paod", "symptoms_4g", "stenosis_ipsilateral", "stenosis_con_bin", "med_statin_derived", "med_statin_lld", "med_all_antiplatelet", "age", "bmi", "gfr_mdrd", "totalchol", "triglyceriden", "ldl", "hdl", "plaquephenotype", "epmajor_3years", "ep_major","time_event_or","fabp4_serum_luminex", "cst3_pg_ug", "cst3_serum_luminex", "hdac9", "vegfa_plasma", "vwf_plasma", 	"pla2_plasma", "pcsk9_plasma", "gdf15_plasma", "ctni_plasma","rantes_plasma", "hscrp_plasma", "tat_plasma", "mpo_plasma", "ntprobnp_plasma", "pdgf_bb_plasma", "opg_plasma", "il6")
-catVars <- c("cluster", "sex", "smokercurrent", "dm_composite", "risk614", "hypertension1", "cad_history", "stroke_history", "paod", "symptoms_4g", "stenosis_ipsilateral", "stenosis_con_bin", "med_statin_derived", "med_statin_lld", "med_all_antiplatelet", "plaquephenotype", "epmajor_3years", "ep_major")
+listVars <- c("sex", "smokercurrent", "dm_composite","hypertension1", "cad_history", "stroke_history", "paod", "symptoms_4g", "stenosis_ipsilateral", "stenosis_con_bin", "med_statin_derived", "med_statin_lld", "med_all_antiplatelet", "age", "bmi", "gfr_mdrd", "totalchol", "triglyceriden", "ldl", "hdl", "plaquephenotype", "epmajor_3years", "ep_major","time_event_or","fabp4_serum_luminex", "cst3_pg_ug", "cst3_serum_luminex", "hdac9", "vegfa_plasma", "vwf_plasma", 	"pla2_plasma", "pcsk9_plasma", "gdf15_plasma", "ctni_plasma","rantes_plasma", "hscrp_plasma", "tat_plasma", "mpo_plasma", "ntprobnp_plasma", "pdgf_bb_plasma", "opg_plasma", "il6","macmean0",	"smcmean0", "fat", "thrombus",	"thrombus_organization", "thrombus_organization_v2",	"thrombus_location",	"calcification",	"collagen"	,"smc"	,"smc_location"	,"macrophages",	"macrophages_location",	"smc_macrophages_ratio",	"media",	"neutrophils",	"mast_cells_plaque",	"vessel_density", "iph_bin","mast_cells_plaque","vessel_density")
+catVars <- c("cluster", "sex", "smokercurrent", "dm_composite", "risk614", "hypertension1", "cad_history", "stroke_history", "paod", "symptoms_4g", "stenosis_ipsilateral", "stenosis_con_bin", "med_statin_derived", "med_statin_lld", "med_all_antiplatelet", "plaquephenotype", "epmajor_3years", "ep_major", "fat", "thrombus",	"thrombus_organization", "thrombus_organization_v2",	"thrombus_location",	"calcification",	"collagen"	,"smc"	,"smc_location"	,"macrophages",	"macrophages_location",	"smc_macrophages_ratio",	"media", "iph_bin", "fat", "thrombus",	"thrombus_organization", "thrombus_organization_v2",	"thrombus_location",	"calcification",	"collagen"	,"smc"	,"smc_location"	,"macrophages",	"macrophages_location",	"smc_macrophages_ratio",	"media", "iph_bin")
 
 
-table1 <- CreateTableOne(vars = listVars, data = clinical_sel, factorVars = catVars)
-table2 <- CreateTableOne(listVars, clinical_sel, catVars, strata = c("cluster"))
+table1 <- CreateTableOne(vars = unique(listVars), data = clinical_sel, factorVars = unique(catVars))
+
+tab3Mat <- print(table1,  quote = FALSE, noSpaces = TRUE, printToggle = FALSE)
+## Save to a CSV file
+write.table(tab3Mat, file = paste(a_name,"baseline_characteristics.txt"),quote = T, sep = "\t")
+
+
+table2 <- CreateTableOne(vars = unique(listVars), data = clinical_sel, factorVars = unique(catVars), strata = c("cluster"))
+tab2Mat <- print(table2,  quote = FALSE, noSpaces = TRUE, printToggle = FALSE)
+## Save to a CSV file
+write.table(tab2Mat, file = paste(a_name,"baseline_characteristics_clusters.txt"),quote = T, sep = "\t")
+
+
 beeswarm(clinical_sel$time_event_or ~ clinical_sel$cluster)
 beeswarm(clinical_sel$hscrp_plasma ~ clinical_sel$cluster,ylim = c(0,1000))
-table_female <- CreateTableOne(listVars, clinical_sel[clinical_sel$sex=="female",], catVars, strata = c("cluster"))
-table3 <- CreateTableOne(listVars, clinical_sel, catVars, strata = c("plaquephenotype"))
-table4 <- CreateTableOne(listVars, clinical_sel, catVars, strata = c("cluster","plaquephenotype"))
-table5 <- CreateTableOne(listVars, clinical_sel, catVars, strata = c("cluster","sex"))
-
-
-#############   logistic model
-
-#check male female separatelly, 
-#take only one category e.g fibrous   and see if RNA adds something.
-#repeat even the clustering only on one plaque type
-#PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8+PC_9+PC_10+PC_11+PC_12+PC_13+PC_14+PC15
 
 
 
 
 
-pdf(file = paste(a_name,"GLM_SYmptoms_2g.pdf"),height = 7,width = 7)
-par(mfrow=c(2,2))
 
-
-histology = "symptoms_2g ~ plaquephenotype + macmean0 + iph_bin + smcmean0 + thrombus_location + calcification + smc"
-RNA_PCA = "symptoms_2g ~ PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8+PC_9+PC_10+PC_11+PC_12+PC_13+PC_14+PC_15"
-in_silico_histology = "symptoms_2g ~ CD3CD8 + CD14CD68 + MYH11SmoothMuscleCells + CD79ABCells + CD3CD4 + CD34 + KITMastCells"
-all_parameters = "symptoms_2g ~ PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8+PC_9+PC_10+PC_11+PC_12+PC_13+PC_14+PC_15+plaquephenotype + macmean0 + iph_bin + smcmean0+thrombus_location+calcification+smc"
-
-
-model2 <- glm(histology, data = clinical_sel, family = binomial)
-summary(model2)
-steps=step(model2)
-predictions <- as.data.frame(1-predict(model2, clinical_sel, type = "response"))
-names(predictions)="mild"
-predictions$severe=1-predictions$mild
-predictions$observed <- clinical_sel$symptoms_2g
-predictions = predictions[complete.cases(predictions),]
-predictions$predict <- names(predictions)[1:2][apply(predictions[,1:2], 1, which.max)]
-head(predictions)
-predictions = predictions[complete.cases(predictions),]
-roc.hist = roc(predictions$observed, predictions$severe)
-boxplot(severe~observed,data = predictions,outline = F, ylab = ("prediction score"),main = "histology",ylim = c(0,1))
-beeswarm(severe~observed,data = predictions,add = T, col = c("orange","red"), pch = 20,cex = 0.6)
-
-
-model3 <- glm(RNA_PCA, data = clinical_sel, family = binomial)
-summary(model3)
-steps=step(model3)
-predictions <- as.data.frame(1-predict(model3, clinical_sel, type = "response"))
-names(predictions)="mild"
-predictions$severe=1-predictions$mild
-predictions$observed <- clinical_sel$symptoms_2g
-predictions = predictions[complete.cases(predictions),]
-predictions$predict <- names(predictions)[1:2][apply(predictions[,1:2], 1, which.max)]
-head(predictions)
-predictions = predictions[complete.cases(predictions),]
-roc.rna = roc(predictions$observed, predictions$severe)
-boxplot(severe~observed,data = predictions,outline = F, ylab = ("prediction score"),main = "RNA",ylim = c(0,1))
-beeswarm(severe~observed,data = predictions,add = T, col = c("lightblue","darkblue"), pch = 20,cex = 0.6)
-
-
-
-model1 <- glm(all_parameters, data = clinical_sel, family = binomial)
-summary(model1)
-steps=step(model1)
-predictions <- as.data.frame(1-predict(model1, clinical_sel, type = "response"))
-names(predictions)="mild"
-predictions$severe=1-predictions$mild
-predictions$observed <- clinical_sel$symptoms_2g
-predictions = predictions[complete.cases(predictions),]
-predictions$predict <- names(predictions)[1:2][apply(predictions[,1:2], 1, which.max)]
-head(predictions)
-predictions = predictions[complete.cases(predictions),]
-roc.all = roc(predictions$observed, predictions$severe)
-boxplot(severe~observed,data = predictions,outline = F, ylab = ("prediction score"),main = "histology + RNA",ylim = c(0,1))
-beeswarm(severe~observed,data = predictions,add = T, col = c("lightgreen","darkgreen"), pch = 20,cex = 0.6)
-
-
-
-#model4 <- glm(in_silico_histology, data = clinical_sel, family = binomial)
-#summary(model4)
-#steps=step(model4)
-#predictions <- as.data.frame(1-predict(model1, clinical_sel, type = "response"))
-#names(predictions)="mild"
-#predictions$severe=1-predictions$mild
-#predictions$observed <- clinical_sel$symptoms_2g
-#predictions = predictions[complete.cases(predictions),]
-#predictions$predict <- names(predictions)[1:2][apply(predictions[,1:2], 1, which.max)]
-#head(predictions)
-#predictions = predictions[complete.cases(predictions),]
-#roc.ishistology = roc(predictions$observed, predictions$severe)
-#boxplot(severe~observed,data = predictions,outline = F, ylab = ("prediction score"),main = "IS histology",ylim = c(0,1))
-#beeswarm(severe~observed,data = predictions,add = T, col = c("lightpurple","purple"), pch = 20,cex = 0.6)
-
-
-plot(roc.all, col = "green", xlim = c(1,0))
-lines(roc.rna, col = "blue")
-lines(roc.hist, col = "red")
-legend(legend = c(paste ("H AUC = ",round(roc.hist$auc,digits = 3)),
-                  paste ("R AUC = ",round(roc.rna$auc,digits = 3)),
-                  paste ("R+H AUC = ",round(roc.all$auc,digits = 3))
-                  ),x=0.6,y=0.3,col = c("red","blue","green"),pch = 19)
-dev.off()
-
-##################
-pdf(file = paste(a_name,"GLM_SYmptoms_2g_noTIA.pdf"),height = 7,width = 7)
-par(mfrow=c(2,2))
-clinical_sel = clinical_sel[clinical_sel$symptoms_4g!="TIA",]
-
-histology = "symptoms_2g ~ plaquephenotype + macmean0 + iph_bin + smcmean0 + thrombus_location + calcification + smc"
-RNA_PCA = "symptoms_2g ~ PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8+PC_9+PC_10+PC_11+PC_12+PC_13+PC_14+PC_15"
-all_parameters = "symptoms_2g ~ PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8+PC_9+PC_10+PC_11+PC_12+PC_13+PC_14+PC_15+plaquephenotype + macmean0 + iph_bin + smcmean0+thrombus_location+calcification+smc"
-
-
-model2 <- glm(histology, data = clinical_sel, family = binomial)
-summary(model2)
-steps=step(model2)
-predictions <- as.data.frame(1-predict(model2, clinical_sel, type = "response"))
-names(predictions)="mild"
-predictions$severe=1-predictions$mild
-predictions$observed <- clinical_sel$symptoms_2g
-predictions = predictions[complete.cases(predictions),]
-predictions$predict <- names(predictions)[1:2][apply(predictions[,1:2], 1, which.max)]
-head(predictions)
-predictions = predictions[complete.cases(predictions),]
-roc.hist = roc(predictions$observed, predictions$severe)
-boxplot(severe~observed,data = predictions,outline = F, ylab = ("prediction score"),main = "histology",ylim = c(0,1))
-beeswarm(severe~observed,data = predictions,add = T, col = c("orange","red"), pch = 20,cex = 0.9)
-
-
-model3 <- glm(RNA_PCA, data = clinical_sel, family = binomial)
-summary(model3)
-steps=step(model3)
-predictions <- as.data.frame(1-predict(model3, clinical_sel, type = "response"))
-names(predictions)="mild"
-predictions$severe=1-predictions$mild
-predictions$observed <- clinical_sel$symptoms_2g
-predictions = predictions[complete.cases(predictions),]
-predictions$predict <- names(predictions)[1:2][apply(predictions[,1:2], 1, which.max)]
-head(predictions)
-predictions = predictions[complete.cases(predictions),]
-roc.rna = roc(predictions$observed, predictions$severe)
-boxplot(severe~observed,data = predictions,outline = F, ylab = ("prediction score"),main = "RNA",ylim = c(0,1))
-beeswarm(severe~observed,data = predictions,add = T, col = c("lightblue","darkblue"), pch = 20,cex = 0.9)
-
-
-
-model1 <- glm(all_parameters, data = clinical_sel, family = binomial)
-summary(model1)
-steps=step(model1)
-predictions <- as.data.frame(1-predict(model1, clinical_sel, type = "response"))
-names(predictions)="mild"
-predictions$severe=1-predictions$mild
-predictions$observed <- clinical_sel$symptoms_2g
-predictions = predictions[complete.cases(predictions),]
-predictions$predict <- names(predictions)[1:2][apply(predictions[,1:2], 1, which.max)]
-head(predictions)
-predictions = predictions[complete.cases(predictions),]
-roc.all = roc(predictions$observed, predictions$severe)
-boxplot(severe~observed,data = predictions,outline = F, ylab = ("prediction score"),main = "histology + RNA",ylim = c(0,1))
-beeswarm(severe~observed,data = predictions,add = T, col = c("lightgreen","darkgreen"), pch = 20,cex = 0.9)
-
-
-
-plot(roc.all, col = "green", xlim = c(1,0))
-lines(roc.rna, col = "blue")
-lines(roc.hist, col = "red")
-legend(legend = c(paste ("H AUC = ",round(roc.hist$auc,digits = 3)),
-                  paste ("R AUC = ",round(roc.rna$auc,digits = 3)),
-                  paste ("R+H AUC = ",round(roc.all$auc,digits = 3))
-),x=0.6,y=0.3,col = c("red","blue","green"),pch = 19)
-
-dev.off()
 
 ##########################PCA loadings
 PCA_load = Loadings(colonENS, reduction = "pca")
@@ -1157,15 +1064,15 @@ mart <- useEnsembl(biomart = "ensembl",
                            mirror = "useast")
 
 
-for (i in 1:100){
+for (i in c(2)){
   print(i)
   if((i %% 2) == 0){j=i/2
     #extract genes
-    DEGs=names(PCA_load[order(PCA_lead[,j],decreasing = F),1][1:50])
+    DEGs=names(PCA_load[order(PCA_load[,j],decreasing = F),1][1:100])
   } else{
       j=i/2+0.5
     #extract genes
-    DEGs=names(PCA_load[order(PCA_lead[,j],decreasing = T),1][1:50])
+    DEGs=names(PCA_load[order(PCA_load[,j],decreasing = T),1][1:100])
     }
   print(j)  
   
@@ -1179,7 +1086,7 @@ for (i in 1:100){
   DEGs_entrez_all[[as.character(i)]]=as.vector(DEGs_entrez[,1])
   PA <- enrichPathway(gene=as.vector(DEGs_entrez[,1]),pvalueCutoff=0.05,minGSSize = 5,maxGSSize = 500, readable=T,pAdjustMethod="none")
   if (length(as.data.frame(PA)[,1])>1){
-    pdf(file = paste(a_name,paste(paste(i,j,sep="_"),"PCA_Reactome_50genes.pdf")),height = 7, width = 13)
+    pdf(file = paste(a_name,paste(paste(i,j,sep="_"),"PCA_Reactome_100genes.pdf")),height = 6, width = 7)
     print(barplot(PA, showCategory=10))
     print(barplot(PA, showCategory=15))
     print(barplot(PA, showCategory=20))
@@ -1193,16 +1100,50 @@ for (i in 1:100){
     print(emapplot(PA, showCategory=20))
     print(emapplot(PA, showCategory=50))
     print(emapplot(PA, showCategory=200))
-    print(cnetplot(PA, categorySize="pvalue",showCategory=8))
+    print(cnetplot(PA, categorySize="pvalue",showCategory=6))
     print(cnetplot(PA, categorySize="pvalue",showCategory=20))
     dev.off()
   }
 }
-cRes <- compareCluster(DEGs_entrez_all[-1], fun="enrichPathway",minGSSize = 5,maxGSSize = 500,pvalueCutoff=0.05,pAdjustMethod="none")
-pdf(file = paste(a_name,"_COmpare_PCAs_pathway_50_genes.pdf"),height = 26,width = 18)
-dotplot(cRes,showCategory=30)
+
+
+
+#classical model
+
+cResall <- compareCluster(DEGs_entrez_all[-1][c(1:8,11:16,19:24,27:48,51,52,55:60,63,64,67,68,73,74,77:82,85:90,93,94,97:100)], fun="enrichPathway",minGSSize = 5,maxGSSize = 500,pvalueCutoff=0.001,pAdjustMethod="none")
+pdf(file = paste(a_name,"_COmpare_PCAs_pathway_100_genes_all.pdf"),height = 14,width = 16)
+dotplot(cResall,showCategory=4,title="all")
 dev.off()
 
+
+
+#classical model
+
+cRes1 <- compareCluster(DEGs_entrez_all[-1][c(1,2,5,6,21,22,27,28,29:32,39:42,45,46,55,56,59,60,67,68,81,82,87,88,89,90,97,98)], fun="enrichPathway",minGSSize = 5,maxGSSize = 500,pvalueCutoff=0.001,pAdjustMethod="none")
+pdf(file = paste(a_name,"_COmpare_PCAs_pathway_100_genes_classical.pdf"),height = 9,width = 12)
+dotplot(cRes1,showCategory=5,title="asymptomatic + ocular vs. TIA + stroke")
+dev.off()
+
+#only those used in no TIA model
+
+cRes <- compareCluster(DEGs_entrez_all[-1][c(1,2,5,6,11,12,19,23,24,20,27,28,31:44,51,52,55:58,67,68,73,74,77,78,81,82,85,86,89,90,93,94)], fun="enrichPathway",minGSSize = 5,maxGSSize = 500,pvalueCutoff=0.001,pAdjustMethod="none")
+pdf(file = paste(a_name,"_COmpare_PCAs_pathway_100_genes_no_TIA.pdf"),height = 9,width = 12)
+dotplot(cRes,showCategory=5,title="asymptomatic + ocular vs. stroke")
+dev.off()
+
+
+#only_those in asymptomatic vs stroke model
+
+cRes2 <- compareCluster(DEGs_entrez_all[-1][c(1,2,5,6,7,8,13,14,21,22,31,32,35:44)], fun="enrichPathway",minGSSize = 5,maxGSSize = 500,pvalueCutoff=0.001,pAdjustMethod="none")
+pdf(file = paste(a_name,"_COmpare_PCAs_pathway_100_genes_ocular_stroke_model.pdf"),height = 8,width = 10)
+dotplot(cRes2,showCategory=7)
+dev.off()
+
+#only_those in epmajor_3years model
+cRes3 <- compareCluster(DEGs_entrez_all[-1][c(3,4,5,6,15,16,19,20,21,22,23,24,27,28,31,32,55,56,59,60,63,64,79,80,93,94)], fun="enrichPathway",minGSSize = 5,maxGSSize = 500,pvalueCutoff=0.001,pAdjustMethod="none")
+pdf(file = paste(a_name,"_COmpare_PCAs_pathway_100_genes_ep_major3years_model.pdf"),height = 11,width = 11)
+dotplot(cRes3,showCategory=7, title = "major event in 3-year follow up")
+dev.off()
 
 ###################
 
@@ -1516,7 +1457,23 @@ DoHeatmap(seusetild_v3.cluster.averages, features = c("CCDC144A","CYSLTR1","KYNU
 load("all.seur.combined.RData")
 seusetild_v3 <- UpdateSeuratObject(object = all.seur.combined)
 FeaturePlot(object = seusetild_v3, features = "FGF13",cols = colorpanel(100,"grey90","darkgreen","black"))
-FeaturePlot(object = seusetild_v3, features = "KYNU",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seusetild_v3, features = "FBP1",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seusetild_v3, features = "ENO2",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seusetild_v3, features = "ALDOA",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seusetild_v3, features = "ENO1",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seusetild_v3, features = "GPC4",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seusetild_v3, features = "MMP7",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seusetild_v3, features = "FN1",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seusetild_v3, features = "MMP19",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seusetild_v3, features = "TPI1",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seusetild_v3, features = "HK2",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seusetild_v3, features = "PGK1",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seusetild_v3, features = "CD36",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seusetild_v3, features = "SPP1",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seusetild_v3, features = "ADAM8",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seusetild_v3, features = "TPH",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seusetild_v3, features = "VWF",cols = colorpanel(100,"grey90","darkgreen","black"))
+FeaturePlot(object = seusetild_v3, features = "TET2",cols = colorpanel(100,"grey90","darkgreen","black"))
 
 
 VlnPlot(object = seuset, features = "ACTA2")
@@ -1527,9 +1484,11 @@ VlnPlot(object = seuset, features = "IL6")
 VlnPlot(object = seuset, features = "XBP1")
 FeaturePlot(object = colonHG, features = "NOS1")
 FeaturePlot(object = colonHG, features = "XBP1")
+FeaturePlot(object = colonHG, features = "TNFRSF18")
 
 ###############Y chrom
-VlnPlot(object = colonHG, features = "ZFY")
+VlnPlot(object = colonHG, features = "TET2")
+VlnPlot(object = colonHG, features = "KLF14")
 VlnPlot(object = colonHG, features = "SRY")
 VlnPlot(object = colonHG, features = "TSPY2")
 VlnPlot(object = colonHG, features = "AMELY")
@@ -1538,9 +1497,16 @@ VlnPlot(object = colonHG, features = "SRY")
 VlnPlot(object = colonHG, features = "UTY")
 VlnPlot(object = colonHG, features = "PRY")
 
- 
+VlnPlot(object = colonHG, features = "TNFRSF18")
+FeaturePlot(object = colonHG, features = "TET2")
+VlnPlot(object = colonHG, features = "CD40LG")
+FeaturePlot(object = colonHG, features = "CD40LG")
 
-save.image(file='whole_analysis.RData')
+
+DoHeatmap(AverageExpression(colonHG, return.seurat = TRUE), features = c("ACE2","CTSL","CTSB","SLC6A20","PDIA6","ST3GAL5","EPHB2","ASS1","VAV3","BACH1","ANXA5","IL13RA1","MACC1","FAM3B","CCL8","MUC20","ABO","XCR1","CXCR6","FYCO1","LZTFL1","SLC6A20","TMPRSS2"),draw.lines = F) + scale_fill_gradientn(colors = c("grey100","grey90","darkgreen"))
+
+
+#save.image(file='whole_analysis.RData')
 load('whole_analysis.RData')
 
 

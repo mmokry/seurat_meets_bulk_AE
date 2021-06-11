@@ -26,7 +26,7 @@ copycat = 1 # copycat object on and off - it creates seurat objects with same co
 logNorm_later = 1 # performs log norm after PCA calculations
 
 #stamp for filenames from this analysis
-a_name = "13_rib_min_scaled_withGN_unscaled_PCAs_QN"
+a_name = "14_as13_PCAs_model_QN"
 
 setwd("C:/Users/micha/OneDrive/Documents/R/atheroexpress/analysis_draft")
 
@@ -199,14 +199,22 @@ if (logNorm_later == 1) {
   }
 }
 
+##############   asymptomatic / TIA+ocular ####
+#RNA_PCA = "symptoms_2g ~ PC_1 + PC_2 + PC_3 + PC_4 + PC_6 + PC_7 + PC_18 + PC_20 + PC_22 + PC_24 + PC_26 + PC_28 + PC_31 + PC_34 + PC_45"
+
+#all_parameters = "symptoms_2g ~ macmean0 + calcification + smc + macrophages_location +     smc_macrophages_ratio + PC_1 + PC_2 + PC_3 + PC_4 + PC_6 +     PC_7 + PC_8 + PC_18 + PC_20 + PC_22 + PC_23 + PC_24 + PC_26 +     PC_27 + PC_28 + PC_31 + PC_37 + PC_40 + PC_42 + PC_45"
+
+##############   logistic model no TIA ####
+###################################
+"symptoms_2g ~ PC_1 + PC_2 + PC_3 + PC_4 + PC_7 + PC_11"
 
 #find clusters and make tSNE
 pdf(file = paste(a_name,"_tSNE_QC.pdf"),height = 4,width = 4)
-colon <- FindNeighbors(colon, dims = 1:12)
+colon <- FindNeighbors(colon, dims = c(1,2,3,4,6,7,11,18,20,22,23,24,26,27,28,31,34,37,40,42,45))
 colon <- FindClusters(colon, resolution = 0.5)
 head(Idents(colon), 10)
-colon <- RunTSNE(object = colon, dims.use = 1:12, do.fast = TRUE)
-colon <- RunUMAP(object = colon, dims = 1:12)
+colon <- RunTSNE(object = colon, dims.use = c(1,2,3,4,6,7,11,18,20,22,23,24,26,27,28,31,34,37,40,42,45), do.fast = TRUE)
+colon <- RunUMAP(object = colon, dims = c(1,2,3,4,6,7,11,18,20,22,23,24,26,27,28,31,34,37,40,42,45))
 
 #DimPlot(colon)
 DimPlot(colon, reduction = "umap")
@@ -216,14 +224,14 @@ TSNEPlot(object = colon)
 dev.off()
 
 if (copycat==1){
-  colonENS <- FindNeighbors(colonENS, dims = 1:12)
+  colonENS <- FindNeighbors(colonENS, dims = c(1,2,3,4,6,7,11,18,20,22,23,24,26,27,28,31,34,37,40,42,45))
   colonENS <- FindClusters(colonENS, resolution = 0.5)
-  colonENS <- RunTSNE(object = colonENS, dims.use = 1:12, do.fast = TRUE)
-  colonENS <- RunUMAP(object = colonENS, dims = 1:12)
-  colonHG <- FindNeighbors(colonHG, dims = 1:12)
+  colonENS <- RunTSNE(object = colonENS, dims.use = c(1,2,3,4,6,7,11,18,20,22,23,24,26,27,28,31,34,37,40,42,45), do.fast = TRUE)
+  colonENS <- RunUMAP(object = colonENS, dims = c(1,2,3,4,6,7,11,18,20,22,23,24,26,27,28,31,34,37,40,42,45))
+  colonHG <- FindNeighbors(colonHG, dims = c(1,2,3,4,6,7,11,18,20,22,23,24,26,27,28,31,34,37,40,42,45))
   colonHG <- FindClusters(colonHG, resolution = 0.5)
-  colonHG <- RunTSNE(object = colonHG, dims.use = 1:12, do.fast = TRUE)
-  colonHG <- RunUMAP(object = colonHG, dims = 1:12)
+  colonHG <- RunTSNE(object = colonHG, dims.use = c(1,2,3,4,6,7,11,18,20,22,23,24,26,27,28,31,34,37,40,42,45), do.fast = TRUE)
+  colonHG <- RunUMAP(object = colonHG, dims = c(1,2,3,4,6,7,11,18,20,22,23,24,26,27,28,31,34,37,40,42,45))
   
   
 }
@@ -983,30 +991,61 @@ table4 <- CreateTableOne(listVars, clinical_sel, catVars, strata = c("cluster","
 table5 <- CreateTableOne(listVars, clinical_sel, catVars, strata = c("cluster","sex"))
 
 
-#############   logistic model
 
+
+
+################################33
+##############   logistic model####
+###################################
 #check male female separatelly, 
 #take only one category e.g fibrous   and see if RNA adds something.
 #repeat even the clustering only on one plaque type
 #PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8+PC_9+PC_10+PC_11+PC_12+PC_13+PC_14+PC15
 
+library(tidyverse)
+library(tableone)
+#write.table(data.frame(Idents(colon)),file = "Seurat_clusters_Michal_vXX.txt" ,sep = "\t",quote = F)
+seurat_clusters <- read_tsv("Seurat_clusters_Michal_v13.txt")
+seurat_PCA <- read_tsv("PCAs_AE_bulk_v13.txt")
+scaden_predictions <- read_tsv("scaden_predictions_model.txt")
 
+seurat_clusters  <- seurat_clusters %>% 
+  left_join(seurat_PCA, by = "study_number")
+seurat_clusters  <- seurat_clusters %>% 
+  left_join(scaden_predictions, by = "study_number")
 
+clinical_data <- read_tsv("bulk_RNAseq_clinical_data_MM.txt")
 
+clinical_sel <- clinical_data %>% 
+  left_join(seurat_clusters, by = "study_number") %>% 
+  dplyr::select(study_number,symptoms_2g, plaquephenotype ,cluster, sex, macmean0,	smcmean0, fat, thrombus,	thrombus_organization, thrombus_organization_v2,	thrombus_location,	calcification,	collagen	,smc	,smc_location	,macrophages,	macrophages_location,	smc_macrophages_ratio,	media, iph_bin,PC_1,PC_2,PC_3,PC_4,PC_5,PC_6,PC_7,PC_8,PC_9,PC_10,PC_11,PC_12,PC_13,PC_14,PC_15,PC_16,PC_17,PC_18,PC_19,PC_20,PC_21,PC_22,PC_23,PC_24,PC_25,PC_26,PC_27,PC_28,PC_29,PC_30,PC_31,PC_32,PC_33,PC_34,PC_35,PC_36,PC_37,PC_38,PC_39,PC_40,PC_41,PC_42,PC_43,PC_44,PC_45,PC_46,PC_47,PC_48,PC_49,PC_50  )  %>%
+  mutate_at(vars(symptoms_2g, plaquephenotype ,cluster, sex, fat, thrombus,	thrombus_organization, thrombus_organization_v2,	thrombus_location,	calcification,	collagen	,smc	,smc_location	,macrophages,	macrophages_location,	smc_macrophages_ratio,	media,	iph_bin  ), list(as.factor))  %>%
+  print()
+summary(clinical_sel)
 
-pdf(file = paste(a_name,"GLM_SYmptoms_2g.pdf"),height = 7,width = 7)
+pdf(file = paste(a_name,"GLM_SYmptoms_2g_selected_variables.pdf"),height = 7,width = 7)
 par(mfrow=c(2,2))
 
 
-histology = "symptoms_2g ~ plaquephenotype + macmean0 + iph_bin + smcmean0 + thrombus_location + calcification + smc"
-RNA_PCA = "symptoms_2g ~ PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8+PC_9+PC_10+PC_11+PC_12+PC_13+PC_14+PC_15"
-in_silico_histology = "symptoms_2g ~ CD3CD8 + CD14CD68 + MYH11SmoothMuscleCells + CD79ABCells + CD3CD4 + CD34 + KITMastCells"
-all_parameters = "symptoms_2g ~ PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8+PC_9+PC_10+PC_11+PC_12+PC_13+PC_14+PC_15+plaquephenotype + macmean0 + iph_bin + smcmean0+thrombus_location+calcification+smc"
+###################HIST
+clinical_sel <- clinical_data %>% 
+  left_join(seurat_clusters, by = "study_number") %>% 
+  dplyr::select(study_number,symptoms_2g, plaquephenotype, macmean0,	smcmean0, fat,	calcification,	collagen	,smc	,smc_location	,macrophages,	macrophages_location,	smc_macrophages_ratio,	media, iph_bin )  %>%
+  mutate_at(vars(symptoms_2g, plaquephenotype , fat,	calcification,	collagen	,smc	,smc_location	,macrophages,	macrophages_location,	smc_macrophages_ratio,	media,	iph_bin  ), list(as.factor))  %>%
+  print()
+summary(clinical_sel)
+clinical_sel <- clinical_sel %>% 
+  drop_na()
+summary(clinical_sel)
 
+histology = "symptoms_2g ~ plaquephenotype+ macmean0+	smcmean0+ fat+	calcification+	collagen	+smc	+smc_location	+macrophages+	macrophages_location+	smc_macrophages_ratio+	media+ iph_bin "
 
 model2 <- glm(histology, data = clinical_sel, family = binomial)
 summary(model2)
 steps=step(model2)
+histology = "symptoms_2g ~ macmean0 + fat + calcification + smc"
+model2 <- glm(histology, data = clinical_sel, family = binomial)
+summary(model2)
 predictions <- as.data.frame(1-predict(model2, clinical_sel, type = "response"))
 names(predictions)="mild"
 predictions$severe=1-predictions$mild
@@ -1019,10 +1058,25 @@ roc.hist = roc(predictions$observed, predictions$severe)
 boxplot(severe~observed,data = predictions,outline = F, ylab = ("prediction score"),main = "histology",ylim = c(0,1))
 beeswarm(severe~observed,data = predictions,add = T, col = c("orange","red"), pch = 20,cex = 0.6)
 
+########RNA
 
+clinical_sel <- clinical_data %>% 
+  left_join(seurat_clusters, by = "study_number") %>% 
+  dplyr::select(study_number,symptoms_2g, PC_1,PC_2,PC_3,PC_4,PC_5,PC_6,PC_7,PC_8,PC_9,PC_10,PC_11,PC_12,PC_13,PC_14,PC_15,PC_16,PC_17,PC_18,PC_19,PC_20,PC_21,PC_22,PC_23,PC_24,PC_25,PC_26,PC_27,PC_28,PC_29,PC_30,PC_31,PC_32,PC_33,PC_34,PC_35,PC_36,PC_37,PC_38,PC_39,PC_40,PC_41,PC_42,PC_43,PC_44,PC_45,PC_46,PC_47,PC_48,PC_49,PC_50  )  %>%
+  mutate_at(vars(symptoms_2g ), list(as.factor))  %>%
+  print()
+summary(clinical_sel)
+
+
+RNA_PCA = "symptoms_2g ~ PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8+PC_9+PC_10+PC_11+PC_12+PC_13+PC_14+PC_15+PC_16+PC_17+PC_18+PC_19+PC_20+PC_21+PC_22+PC_23+PC_24+PC_25+PC_26+PC_27+PC_28+PC_29+PC_30+PC_31+PC_32+PC_33+PC_34+PC_35+PC_36+PC_37+PC_38+PC_39+PC_40+PC_41+PC_42+PC_43+PC_44+PC_45+PC_46+PC_47+PC_48+PC_49+PC_50"
 model3 <- glm(RNA_PCA, data = clinical_sel, family = binomial)
 summary(model3)
 steps=step(model3)
+RNA_PCA = "symptoms_2g ~ PC_1 + PC_3 + PC_7 + PC_14 + PC_16 + PC_20 + PC_21 + 
+  PC_23 + PC_24 + PC_26 + PC_28 + PC_30 + PC_34 + PC_41 + PC_44 + 
+  PC_45 + PC_49"
+model3 <- glm(RNA_PCA, data = clinical_sel, family = binomial)
+summary(model3)
 predictions <- as.data.frame(1-predict(model3, clinical_sel, type = "response"))
 names(predictions)="mild"
 predictions$severe=1-predictions$mild
@@ -1035,11 +1089,30 @@ roc.rna = roc(predictions$observed, predictions$severe)
 boxplot(severe~observed,data = predictions,outline = F, ylab = ("prediction score"),main = "RNA",ylim = c(0,1))
 beeswarm(severe~observed,data = predictions,add = T, col = c("lightblue","darkblue"), pch = 20,cex = 0.6)
 
+####ALL
+
+
+clinical_sel <- clinical_data %>% 
+  left_join(seurat_clusters, by = "study_number") %>% 
+  dplyr::select(study_number,symptoms_2g, plaquephenotype, macmean0,	smcmean0, fat,	calcification,	collagen	,smc	,smc_location	,macrophages,	macrophages_location,	smc_macrophages_ratio,	media, iph_bin , PC_1,PC_2,PC_3,PC_4,PC_5,PC_6,PC_7,PC_8,PC_9,PC_10,PC_11,PC_12,PC_13,PC_14,PC_15,PC_16,PC_17,PC_18,PC_19,PC_20,PC_21,PC_22,PC_23,PC_24,PC_25,PC_26,PC_27,PC_28,PC_29,PC_30,PC_31,PC_32,PC_33,PC_34,PC_35,PC_36,PC_37,PC_38,PC_39,PC_40,PC_41,PC_42,PC_43,PC_44,PC_45,PC_46,PC_47,PC_48,PC_49,PC_50 )  %>%
+  mutate_at(vars(symptoms_2g, plaquephenotype , fat,	calcification,	collagen	,smc	,smc_location	,macrophages,	macrophages_location,	smc_macrophages_ratio,	media,	iph_bin  ), list(as.factor))  %>%
+  print()
+summary(clinical_sel)
+clinical_sel <- clinical_sel %>% 
+  drop_na()
+summary(clinical_sel)
+
+all_parameters = "symptoms_2g ~ plaquephenotype+ macmean0+	smcmean0+ fat+	calcification+	collagen	+smc	+smc_location	+macrophages+	macrophages_location+	smc_macrophages_ratio+	media+ iph_bin+PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8+PC_9+PC_10+PC_11+PC_12+PC_13+PC_14+PC_15+PC_16+PC_17+PC_18+PC_19+PC_20+PC_21+PC_22+PC_23+PC_24+PC_25+PC_26+PC_27+PC_28+PC_29+PC_30+PC_31+PC_32+PC_33+PC_34+PC_35+PC_36+PC_37+PC_38+PC_39+PC_40+PC_41+PC_42+PC_43+PC_44+PC_45+PC_46+PC_47+PC_48+PC_49+PC_50"
 
 
 model1 <- glm(all_parameters, data = clinical_sel, family = binomial)
 summary(model1)
 steps=step(model1)
+all_parameters = "symptoms_2g ~ fat + calcification + PC_1 + PC_3 + PC_11 + PC_14 + 
+    PC_15 + PC_16 + PC_20 + PC_21 + PC_23 + PC_28 + PC_30 + PC_34 + 
+    PC_41 + PC_44 + PC_45 + PC_49"
+model1 <- glm(all_parameters, data = clinical_sel, family = binomial)
+summary(model1)
 predictions <- as.data.frame(1-predict(model1, clinical_sel, type = "response"))
 names(predictions)="mild"
 predictions$severe=1-predictions$mild
@@ -1079,19 +1152,54 @@ legend(legend = c(paste ("H AUC = ",round(roc.hist$auc,digits = 3)),
                   ),x=0.6,y=0.3,col = c("red","blue","green"),pch = 19)
 dev.off()
 
-##################
-pdf(file = paste(a_name,"GLM_SYmptoms_2g_noTIA.pdf"),height = 7,width = 7)
+
+
+################################33
+##############   logistic model no TIA ####
+###################################
+#clinical_sel = clinical_sel[clinical_sel$symptoms_4g!="TIA",]
+pdf(file = paste(a_name,"GLM_SYmptoms_2g_noTIA_selected_vars.pdf"),height = 7,width = 7)
 par(mfrow=c(2,2))
+seurat_clusters <- read_tsv("Seurat_clusters_Michal_v13.txt")
+seurat_PCA <- read_tsv("PCAs_AE_bulk_v13.txt")
+scaden_predictions <- read_tsv("scaden_predictions_model.txt")
+
+seurat_clusters  <- seurat_clusters %>% 
+  left_join(seurat_PCA, by = "study_number")
+seurat_clusters  <- seurat_clusters %>% 
+  left_join(scaden_predictions, by = "study_number")
+
+clinical_data <- read_tsv("bulk_RNAseq_clinical_data_MM.txt")
+
+clinical_sel <- clinical_data %>% 
+  left_join(seurat_clusters, by = "study_number") %>% 
+  dplyr::select(study_number,symptoms_4g,symptoms_2g, plaquephenotype ,cluster, sex, macmean0,	smcmean0, fat, thrombus,	thrombus_organization, thrombus_organization_v2,	thrombus_location,	calcification,	collagen	,smc	,smc_location	,macrophages,	macrophages_location,	smc_macrophages_ratio,	media, iph_bin,PC_1,PC_2,PC_3,PC_4,PC_5,PC_6,PC_7,PC_8,PC_9,PC_10,PC_11,PC_12,PC_13,PC_14,PC_15,PC_16,PC_17,PC_18,PC_19,PC_20,PC_21,PC_22,PC_23,PC_24,PC_25,PC_26,PC_27,PC_28,PC_29,PC_30,PC_31,PC_32,PC_33,PC_34,PC_35,PC_36,PC_37,PC_38,PC_39,PC_40,PC_41,PC_42,PC_43,PC_44,PC_45,PC_46,PC_47,PC_48,PC_49,PC_50  )  %>%
+  mutate_at(vars(symptoms_2g, symptoms_4g,plaquephenotype ,cluster, sex, fat, thrombus,	thrombus_organization, thrombus_organization_v2,	thrombus_location,	calcification,	collagen	,smc	,smc_location	,macrophages,	macrophages_location,	smc_macrophages_ratio,	media,	iph_bin  ), list(as.factor))  %>%
+  print()
+summary(clinical_sel)
 clinical_sel = clinical_sel[clinical_sel$symptoms_4g!="TIA",]
 
-histology = "symptoms_2g ~ plaquephenotype + macmean0 + iph_bin + smcmean0 + thrombus_location + calcification + smc"
-RNA_PCA = "symptoms_2g ~ PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8+PC_9+PC_10+PC_11+PC_12+PC_13+PC_14+PC_15"
-all_parameters = "symptoms_2g ~ PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8+PC_9+PC_10+PC_11+PC_12+PC_13+PC_14+PC_15+plaquephenotype + macmean0 + iph_bin + smcmean0+thrombus_location+calcification+smc"
 
+###################HIST
+clinical_sel <- clinical_data %>% 
+  left_join(seurat_clusters, by = "study_number") %>% 
+  dplyr::select(study_number,symptoms_2g,symptoms_4g, plaquephenotype, macmean0,	smcmean0, fat,	calcification,	collagen	,smc	,smc_location	,macrophages,	macrophages_location,	smc_macrophages_ratio,	media, iph_bin )  %>%
+  mutate_at(vars(symptoms_2g,symptoms_4g, plaquephenotype , fat,	calcification,	collagen	,smc	,smc_location	,macrophages,	macrophages_location,	smc_macrophages_ratio,	media,	iph_bin  ), list(as.factor))  %>%
+  print()
+summary(clinical_sel)
+clinical_sel <- clinical_sel %>% 
+  drop_na()
+clinical_sel = clinical_sel[clinical_sel$symptoms_4g!="TIA",]
+summary(clinical_sel)
+
+histology = "symptoms_2g ~ plaquephenotype+ macmean0+	smcmean0+ fat+	calcification+	collagen	+smc	+smc_location	+macrophages+	macrophages_location+	smc_macrophages_ratio+	media+ iph_bin "
 
 model2 <- glm(histology, data = clinical_sel, family = binomial)
 summary(model2)
 steps=step(model2)
+histology = "symptoms_2g ~ plaquephenotype + macmean0 + calcification + smc"
+model2 <- glm(histology, data = clinical_sel, family = binomial)
+summary(model2)
 predictions <- as.data.frame(1-predict(model2, clinical_sel, type = "response"))
 names(predictions)="mild"
 predictions$severe=1-predictions$mild
@@ -1102,12 +1210,28 @@ head(predictions)
 predictions = predictions[complete.cases(predictions),]
 roc.hist = roc(predictions$observed, predictions$severe)
 boxplot(severe~observed,data = predictions,outline = F, ylab = ("prediction score"),main = "histology",ylim = c(0,1))
-beeswarm(severe~observed,data = predictions,add = T, col = c("orange","red"), pch = 20,cex = 0.9)
+beeswarm(severe~observed,data = predictions,add = T, col = c("orange","red"), pch = 20,cex = 0.6)
+
+########RNA
+
+clinical_sel <- clinical_data %>% 
+  left_join(seurat_clusters, by = "study_number") %>% 
+  dplyr::select(study_number,symptoms_2g,symptoms_4g, PC_1,PC_2,PC_3,PC_4,PC_5,PC_6,PC_7,PC_8,PC_9,PC_10,PC_11,PC_12,PC_13,PC_14,PC_15,PC_16,PC_17,PC_18,PC_19,PC_20,PC_21,PC_22,PC_23,PC_24,PC_25,PC_26,PC_27,PC_28,PC_29,PC_30,PC_31,PC_32,PC_33,PC_34,PC_35,PC_36,PC_37,PC_38,PC_39,PC_40,PC_41,PC_42,PC_43,PC_44,PC_45,PC_46,PC_47,PC_48,PC_49,PC_50  )  %>%
+  mutate_at(vars(symptoms_2g ,symptoms_4g), list(as.factor))  %>%
+  print()
+clinical_sel = clinical_sel[clinical_sel$symptoms_4g!="TIA",]
+summary(clinical_sel)
 
 
+RNA_PCA = "symptoms_2g ~ PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8+PC_9+PC_10+PC_11+PC_12+PC_13+PC_14+PC_15+PC_16+PC_17+PC_18+PC_19+PC_20+PC_21+PC_22+PC_23+PC_24+PC_25+PC_26+PC_27+PC_28+PC_29+PC_30+PC_31+PC_32+PC_33+PC_34+PC_35+PC_36+PC_37+PC_38+PC_39+PC_40+PC_41+PC_42+PC_43+PC_44+PC_45+PC_46+PC_47+PC_48+PC_49+PC_50"
 model3 <- glm(RNA_PCA, data = clinical_sel, family = binomial)
 summary(model3)
 steps=step(model3)
+RNA_PCA = "symptoms_2g ~ PC_1 + PC_2 + PC_3 + PC_6 + PC_7 + PC_10 + PC_12 + 
+    PC_13 + PC_14 + PC_17 + PC_18 + PC_19 + PC_20 + PC_21 + PC_22 + 
+PC_26 + PC_29 + PC_33 + PC_34 + PC_41 + PC_43 + PC_45 + PC_47"
+model3 <- glm(RNA_PCA, data = clinical_sel, family = binomial)
+summary(model3)
 predictions <- as.data.frame(1-predict(model3, clinical_sel, type = "response"))
 names(predictions)="mild"
 predictions$severe=1-predictions$mild
@@ -1118,13 +1242,34 @@ head(predictions)
 predictions = predictions[complete.cases(predictions),]
 roc.rna = roc(predictions$observed, predictions$severe)
 boxplot(severe~observed,data = predictions,outline = F, ylab = ("prediction score"),main = "RNA",ylim = c(0,1))
-beeswarm(severe~observed,data = predictions,add = T, col = c("lightblue","darkblue"), pch = 20,cex = 0.9)
+beeswarm(severe~observed,data = predictions,add = T, col = c("lightblue","darkblue"), pch = 20,cex = 0.6)
 
+####ALL
+
+
+clinical_sel <- clinical_data %>% 
+  left_join(seurat_clusters, by = "study_number") %>% 
+  dplyr::select(study_number,symptoms_2g,symptoms_4g, plaquephenotype, macmean0,	smcmean0, fat,	calcification,	collagen	,smc	,smc_location	,macrophages,	macrophages_location,	smc_macrophages_ratio,	media, iph_bin , PC_1,PC_2,PC_3,PC_4,PC_5,PC_6,PC_7,PC_8,PC_9,PC_10,PC_11,PC_12,PC_13,PC_14,PC_15,PC_16,PC_17,PC_18,PC_19,PC_20,PC_21,PC_22,PC_23,PC_24,PC_25,PC_26,PC_27,PC_28,PC_29,PC_30,PC_31,PC_32,PC_33,PC_34,PC_35,PC_36,PC_37,PC_38,PC_39,PC_40,PC_41,PC_42,PC_43,PC_44,PC_45,PC_46,PC_47,PC_48,PC_49,PC_50 )  %>%
+  mutate_at(vars(symptoms_2g,symptoms_4g, plaquephenotype , fat,	calcification,	collagen	,smc	,smc_location	,macrophages,	macrophages_location,	smc_macrophages_ratio,	media,	iph_bin  ), list(as.factor))  %>%
+  print()
+summary(clinical_sel)
+clinical_sel <- clinical_sel %>% 
+  drop_na()
+clinical_sel = clinical_sel[clinical_sel$symptoms_4g!="TIA",]
+summary(clinical_sel)
+
+all_parameters = "symptoms_2g ~ plaquephenotype+ macmean0+	smcmean0+ fat+	calcification+	collagen	+smc	+smc_location	+macrophages+	macrophages_location+	smc_macrophages_ratio+	media+ iph_bin+PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8+PC_9+PC_10+PC_11+PC_12+PC_13+PC_14+PC_15+PC_16+PC_17+PC_18+PC_19+PC_20+PC_21+PC_22+PC_23+PC_24+PC_25+PC_26+PC_27+PC_28+PC_29+PC_30+PC_31+PC_32+PC_33+PC_34+PC_35+PC_36+PC_37+PC_38+PC_39+PC_40+PC_41+PC_42+PC_43+PC_44+PC_45+PC_46+PC_47+PC_48+PC_49+PC_50"
 
 
 model1 <- glm(all_parameters, data = clinical_sel, family = binomial)
 summary(model1)
 steps=step(model1)
+all_parameters = "symptoms_2g ~ plaquephenotype + fat + calcification + PC_1 + 
+    PC_3 + PC_6 + PC_10 + PC_12 + PC_14 + PC_16 + PC_17 + PC_18 + 
+    PC_19 + PC_20 + PC_21 + PC_22 + PC_26 + PC_28 + PC_29 + PC_34 + 
+    PC_37 + PC_39 + PC_41 + PC_43 + PC_45 + PC_47"
+model1 <- glm(all_parameters, data = clinical_sel, family = binomial)
+summary(model1)
 predictions <- as.data.frame(1-predict(model1, clinical_sel, type = "response"))
 names(predictions)="mild"
 predictions$severe=1-predictions$mild
@@ -1135,8 +1280,24 @@ head(predictions)
 predictions = predictions[complete.cases(predictions),]
 roc.all = roc(predictions$observed, predictions$severe)
 boxplot(severe~observed,data = predictions,outline = F, ylab = ("prediction score"),main = "histology + RNA",ylim = c(0,1))
-beeswarm(severe~observed,data = predictions,add = T, col = c("lightgreen","darkgreen"), pch = 20,cex = 0.9)
+beeswarm(severe~observed,data = predictions,add = T, col = c("lightgreen","darkgreen"), pch = 20,cex = 0.6)
 
+
+
+#model4 <- glm(in_silico_histology, data = clinical_sel, family = binomial)
+#summary(model4)
+#steps=step(model4)
+#predictions <- as.data.frame(1-predict(model1, clinical_sel, type = "response"))
+#names(predictions)="mild"
+#predictions$severe=1-predictions$mild
+#predictions$observed <- clinical_sel$symptoms_2g
+#predictions = predictions[complete.cases(predictions),]
+#predictions$predict <- names(predictions)[1:2][apply(predictions[,1:2], 1, which.max)]
+#head(predictions)
+#predictions = predictions[complete.cases(predictions),]
+#roc.ishistology = roc(predictions$observed, predictions$severe)
+#boxplot(severe~observed,data = predictions,outline = F, ylab = ("prediction score"),main = "IS histology",ylim = c(0,1))
+#beeswarm(severe~observed,data = predictions,add = T, col = c("lightpurple","purple"), pch = 20,cex = 0.6)
 
 
 plot(roc.all, col = "green", xlim = c(1,0))
@@ -1146,8 +1307,15 @@ legend(legend = c(paste ("H AUC = ",round(roc.hist$auc,digits = 3)),
                   paste ("R AUC = ",round(roc.rna$auc,digits = 3)),
                   paste ("R+H AUC = ",round(roc.all$auc,digits = 3))
 ),x=0.6,y=0.3,col = c("red","blue","green"),pch = 19)
-
 dev.off()
+
+
+
+
+
+
+
+
 
 ##########################PCA loadings
 PCA_load = Loadings(colonENS, reduction = "pca")
@@ -1161,11 +1329,11 @@ for (i in 1:100){
   print(i)
   if((i %% 2) == 0){j=i/2
     #extract genes
-    DEGs=names(PCA_load[order(PCA_lead[,j],decreasing = F),1][1:50])
+    DEGs=names(PCA_load[order(PCA_lead[,j],decreasing = F),1][1:100])
   } else{
       j=i/2+0.5
     #extract genes
-    DEGs=names(PCA_load[order(PCA_lead[,j],decreasing = T),1][1:50])
+    DEGs=names(PCA_load[order(PCA_lead[,j],decreasing = T),1][1:100])
     }
   print(j)  
   
@@ -1179,7 +1347,7 @@ for (i in 1:100){
   DEGs_entrez_all[[as.character(i)]]=as.vector(DEGs_entrez[,1])
   PA <- enrichPathway(gene=as.vector(DEGs_entrez[,1]),pvalueCutoff=0.05,minGSSize = 5,maxGSSize = 500, readable=T,pAdjustMethod="none")
   if (length(as.data.frame(PA)[,1])>1){
-    pdf(file = paste(a_name,paste(paste(i,j,sep="_"),"PCA_Reactome_50genes.pdf")),height = 7, width = 13)
+    pdf(file = paste(a_name,paste(paste(i,j,sep="_"),"PCA_Reactome_100genes.pdf")),height = 7, width = 13)
     print(barplot(PA, showCategory=10))
     print(barplot(PA, showCategory=15))
     print(barplot(PA, showCategory=20))
@@ -1198,8 +1366,10 @@ for (i in 1:100){
     dev.off()
   }
 }
-cRes <- compareCluster(DEGs_entrez_all[-1], fun="enrichPathway",minGSSize = 5,maxGSSize = 500,pvalueCutoff=0.05,pAdjustMethod="none")
-pdf(file = paste(a_name,"_COmpare_PCAs_pathway_50_genes.pdf"),height = 26,width = 18)
+
+#only those used in TIA model
+cRes <- compareCluster(DEGs_entrez_all[-1][c(1,2,5,6,11,12,19,20,27,28,31:44,51,52,55:58,67,68,73,74,77,78,81,82,85,86,89,90,93,94)], fun="enrichPathway",minGSSize = 5,maxGSSize = 500,pvalueCutoff=0.05,pAdjustMethod="none")
+pdf(file = paste(a_name,"_COmpare_PCAs_pathway_100_genes.pdf"),height = 26,width = 18)
 dotplot(cRes,showCategory=30)
 dev.off()
 
@@ -1514,9 +1684,13 @@ DoHeatmap(seusetild_v3.cluster.averages, features = c("CCDC144A","CYSLTR1","KYNU
 
 ##############
 load("all.seur.combined.RData")
+seurat_40 = readRDS("seurat_40_pts_20200416.RDS")
 seusetild_v3 <- UpdateSeuratObject(object = all.seur.combined)
 FeaturePlot(object = seusetild_v3, features = "FGF13",cols = colorpanel(100,"grey90","darkgreen","black"))
 FeaturePlot(object = seusetild_v3, features = "KYNU",cols = colorpanel(100,"grey90","darkgreen","black"))
+
+
+FeaturePlot(object = seusetild_v3, features = "FURIN",cols = colorpanel(100,"grey90","darkgreen","black"))
 
 
 VlnPlot(object = seuset, features = "ACTA2")
@@ -1527,7 +1701,8 @@ VlnPlot(object = seuset, features = "IL6")
 VlnPlot(object = seuset, features = "XBP1")
 FeaturePlot(object = colonHG, features = "NOS1")
 FeaturePlot(object = colonHG, features = "XBP1")
-
+FeaturePlot(object = colonHG, features = "ACE2")
+FeaturePlot(object = colonHG, features = "FURIN")
 ###############Y chrom
 VlnPlot(object = colonHG, features = "ZFY")
 VlnPlot(object = colonHG, features = "SRY")
@@ -1538,11 +1713,16 @@ VlnPlot(object = colonHG, features = "SRY")
 VlnPlot(object = colonHG, features = "UTY")
 VlnPlot(object = colonHG, features = "PRY")
 
- 
+VlnPlot(object = colonHG, features = "ACE2")
+VlnPlot(object = colonHG, features = "FURIN")
 
-save.image(file='whole_analysis.RData')
+
+#save.image(file='whole_analysis.RData')
 load('whole_analysis.RData')
 
 
+
+a <- DotPlot(object = seusetild_v3, features = c("SVEP1"))
+a$data
 
 
